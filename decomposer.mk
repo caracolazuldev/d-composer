@@ -198,6 +198,34 @@ define DKC_RTFM
 		Stop => services, does not remove
 		Remove => services, removes containers
 		Down => services, stop and remove
+	
+	- Composing Composer Files -
+
+	Composer yaml files are meant to be composed. By supplying multiple Compose
+	files, the default docker-compose.yml is intended to be a base configuration
+	for your project. You can then implement different scenarios by adding overrides
+	and extensions to your base service definitions. This probably works great for
+	automation, but gets klunky quickly for a developer workflow and leads to a 
+	lot of typing. Decomposer exploits this feature and makes it trivial to define
+	alternate modes as separate stacks and keeping key-strokes to a minimum.
+
+	To create overrides, you need to provide the context of your YAML snipit so it can
+	be readily merged with Compose files passed to the command previously. So,
+	you will always provide a top-level declaration, such as "services:", "networks:",
+	"volumes:", "configs:", etc.
+
+	The second important concept is the environment file. By default, .env will 
+	be used but an alternate canbe specified with --env-file option.
+	https://docs.docker.com/compose/env-file/
+
+	Tips and Gotchas:
+	 - Variables from the environment override the env-file.
+	 - Variables are not automatically provided to containers
+	 - Variables are only resolved in YAML values.
+	 - More on Variable Substitution, including defaults: 
+		https://docs.docker.com/compose/compose-file/compose-file-v3/#variable-substitution
+	 - Additional env-files can be declared in a YAML array.
+
 
 DOCKER COMPOSE REFERENCES 
 
