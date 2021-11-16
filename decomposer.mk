@@ -59,14 +59,18 @@ ERGO: TO DEFINE STACKS IN THE SAME FOLDER
 
 ENVIRONMENT CONFIG AND SECRETS
 
-	Note there is no .env in the project directory.
+	The common .env for docker-compose is obviated because it is fraught to manage
+	and may conflict with other uses of an .env file.
 
-	Composer environment files (--env-file) as well as configurations you may mount in a container
-	should be placed in the conf/ folder. You might also put YAML overrides for 
-	your service to add a `config:` stanza to your service.
+	Composer environment files (--env-file) as well as configurations you may 
+	mount in a container should be placed in the conf/ folder. You might also 
+	put YAML overrides for your service to add a `config:` stanza to your service.
 
 	Targeting a development workflow, docker configs and secrets are not integrated
 	into this project-starter, but it should be compatible if your project uses them.
+
+	The secret/ folder will just help separate sensitive passwords and keys from 
+	mundane configurations to help you migrate later to a secret manager.
 
 WRAPPED DOCKER-COMPOSE COMMANDS
 	
@@ -86,12 +90,10 @@ COMMAND ARGUMENTS
 
 	EXEC_CMD is appended only when invoking dkc-exec.
 
-DOCKER COMPOSE REFERENCES 
+MORE ON GETTING STARTED WITH DOCKER COMPOSE
 
- - https://docs.docker.com/compose/reference/envvars/
- - https://docs.docker.com/compose/compose-file/compose-file-v3/
- - https://docs.docker.com/compose/reference/
-
+	If you are a developer still new to all of this infrastructure as code world,
+	run `make dkc-rtfm` for some sign-posts.
 endef
 
 ifdef SERVICE
@@ -103,9 +105,6 @@ ifdef TASK
 endif
 
 compose.yml = ${ENV_FILE} ${PROJECT_DIR} ${NETWORK_YML} ${VOLUMES_YML} ${CONFIGS_YML} $(or ${SERVICE_YML},${TASK_YML})
-
-help:
-	$(info $(HELP_TXT))
 
 dkc-%:
 	$(eval TASK := $(or ${SERVICE},${TASK}))
@@ -119,3 +118,98 @@ stack-%:
 	$(eval export STACK)
 	$(eval STACK := $(shell echo "$${STACK}" | tr a-z A-Z))
 	$(foreach svc,${${STACK}_STACK}, SERVICE=${svc} $(MAKE) dkc-$*;)
+
+# # #
+# HALP
+# # #
+
+define DKC_RTFM
+
+				MORE ON GETTING STARTED WITH DOCKER COMPOSE
+
+	If you are new-ish to docker-compose: here are the key concepts you need to
+	use decomposer.mk successfully. Because decomposer makes defaults explicit,
+	it can help you get a firmer grip on docker-compose by shedding light on
+	some of the magic.
+
+	- Project Name and Networks - 
+
+	The current directory becomes the working path for
+	building containers, and is the default value of COMPOSER_PROJECT_NAME. By 
+	default, containers are joined to the network created automatically by adding
+	the suffix "_default" to the COMPOSER_PROJECT_NAME. 
+
+	https://stackunderflow.dev/p/network-namespaces-and-docker/
+
+	Services in your stack are automatically added to the routing services of the 
+	network, so your services in a stack can all find each other just using the
+	name of the service. Neat.
+
+	Links are just aliases for hosts on the network.
+
+	- Volumes - 
+
+	The two basic kinds of volumes to learn about are bind mounts and 
+	named volumes. Bind mounts should be used sparingly, but are essential for 
+	sharing code with your host machine and your containers. Your code will go in
+	a bind mount so you can write code and immediately run it in a container. Bind
+	mounts are not actually volumes, which are managed by docker, but they are 
+	declared under volumes of a service declaration.
+	
+	Named volumes are faster than bind mounts if you are not using Linux. Volumes 
+	are not removed by default by docker-compose down; pass the -v flag to do so.
+
+	- Tasks, Services, and Stacks  - 
+
+	In cloud architecture, a Task is a unit of Container provisioning. A Service
+	definition in docker is based on a container image and each instance of the 
+	container is referred to as a task. A set of services deployed together is
+	known as a Stack.
+
+	- Up, Start, Run, or Exec - 
+
+	Up and Down are the docker-compose commands to create and run, and stop and 
+	destroy sets of Services known as a Stack. Networks are removed by down, 
+	unless they are still in-use. Volumes are not removed by default.
+
+	Start works either with a stack or a specified service, but does not try to
+	create containers and will fail if a container does not exist.
+	
+	Run creates a new container, building the image if necessary, and can run a 
+	command specified. Two important options to the run command are -d (--detach)
+	and --rm ("Remove"). Without --rm, your container will be preserved after
+	the command stops executing and will be left in an exited status. Detach 
+	backgrounds the task so you can keep using your terminal. The stack command, 
+	"down" will be the easiest way to clean-up stopped containers.
+
+	Exec runs a command in a running container. By default, it will create an
+	interactive terminal.
+
+	Cheat Sheet:
+		Build => images
+		Create => containers, build if needed
+		Start => Services (run), create if needed
+		Restart => Services
+		Run => Services, start with more options
+		Exec => running services, will not start
+		Pause => running services, and command execution
+		Unpause => resumes running command
+		Kill => SIGKILL by default but used to send process -s SIGNAL
+		Stop => services, does not remove
+		Remove => services, removes containers
+		Down => services, stop and remove
+
+DOCKER COMPOSE REFERENCES 
+
+ - https://docs.docker.com/compose/reference/envvars/
+ - https://docs.docker.com/compose/compose-file/compose-file-v3/
+ - https://docs.docker.com/compose/reference/
+
+
+endef
+
+help:
+	$(info $(HELP_TXT))
+
+dkc-rtfm:
+	$(info $(DKC_RTFM))
