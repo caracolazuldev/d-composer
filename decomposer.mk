@@ -1,4 +1,6 @@
 -include composition.conf
+-include shell/${TASK}.conf
+-include stack/${STACK}.conf
 
 .DEFAULT_GOAL := help
 
@@ -8,47 +10,64 @@ define HELP_TXT :=
 
 	To escape the defaults set with the assumption that only one stack is defined
 	in a working directory, multiple declarations are composed with subsequent
-	COMPOSE_FILE parameters ( -f ) to docker-compose. See below for how to make
-	WRAPPED DOCKER-COMPOSE COMMANDS.
+	COMPOSE_FILE parameters ( -f ) to docker-compose. 
 
-	Service declarations should be decomposed into the service/ and shell/ folders.
-	You may put your full definition in one of these files, but to avoid repeating 
-	yourself, put extensions and overrides in network, volume, and conf.
+EXAMPLES
 
-	Services that terminate or are meant to be used with `docker-compose run --rm` can 
-	be defined in the shell/ folder and invoked with the TASK env var, instead of 
-	the SERVICE env var.
+	STACK=lamp make stack-up
 
-	A docker-compose call is constructed out of configuration vars, i.e.:
-	docker-compose $${ENV_FILE} \ 
-		$${PROJECT_DIR} $${NETWORK_YML} $${VOLUMES_YML} $${CONFIGS_YML} \ 
-		$$(or $${SERVICE_YML},$${TASK_YML})
+	TASK=shell make task-run
 
-	Define these configuration vars using `make` syntax in either:
-		- service/$${SERVICE}.conf
-		- shell/$${TASK}.conf
+	STACK=lamp make stack-config CMD_ARGS=--services
 	
-	You should include the necessary flag in each configuration, e.g.
+	STACK=lamp make stack-build SERVICE=php8-apache DK_CMP_OPTS='--no-cache'
 
-	TASK := bash
-	ENV_FILE ?= --env-file conf/bash.env
-	PROJECT_DIR ?= --project-directory .
-	NETWORK_YML ?= -f network/web.yml
-	VOLUMES_YML ?= 
-	TASK_YML ?= -f shell/bash.yml
-	EXEC_CMD ?= /bin/bash
+	STACK=lamp make stack-exec SERVICE=php8-apache RUN_CMD='php -i'
 
-	Global (trans-stack) configurations may be placed in the make-include file,
-	`composition.conf`.
+	[alias for run -d]
+	STACK=lamp make stack-rund SERVICE=mysql RUN_CMD='php -i'
 
-ERGO: TO DEFINE STACKS IN THE SAME FOLDER
+CONCEPTS
 
-	Tasks or services are defined from decomposed docker-compose services by
-	creating *.conf files and stacks can be defined in a Makefile that integrates
-	these utils.
+	- Stack: -
+	abstraction of a compose-file (docker-compose.yml), or a collection of 
+	services that share a network namespace.
+
+	- Service: -
+	a docker-compose service
+
+	- Task: -
+	a docker-compose service conventionally not part of a stack, declared
+	to be used with docker-compose run.
+
+FOLDERS
+
+	- stack/ -
+	define stacks in .conf, .env, and .yml files, named by stack-name.
+	 - <stack>.env will be passed in --env-file to docker-compose.
+	 - <stack>.conf is included in make and can define the STACK_SERVICES list
+	 - <stack>.yml defines top-level docker-compose entities like volumes, config, etc.
+	
+	- service/ -
+	Service declarations, intended to be composed into stacks, so excluding
+	any other top-level compose-file entities. NB: paths, such as build-context,
+	 should be relative to the project directory.
+
+	- shell/ -
+	Conventional placement of docker-compose service declarations not part of a 
+	stack. NB: paths, such as build-context, should be relative to the project 
+	directory.
+
+	- network/, volume/, config/ -
+	Optional location for top-level compose-file configurations. File-name 
+	should be <stack-name>.yml
+
+DEFINING STACKS
 
 	Define stacks in the global composition.conf by listing the services in a 
-	var with the suffix, "_STACK".
+	var with the suffix, "_STACK". 
+	
+	Or: define the STACK_SERVICES list in the stack/<stack>.yml file.
 
 	The docker-compose wrapper is wrapped again as stack-%, so that the stack
 	command is run for each service.
@@ -57,67 +76,53 @@ ERGO: TO DEFINE STACKS IN THE SAME FOLDER
 
 	... to activate the stack defined as LAMP_STACK := php-apache mysql
 
-ENVIRONMENT CONFIG AND SECRETS
-
-	The common .env for docker-compose is obviated because it is fraught to manage
-	and may conflict with other uses of an .env file.
-
-	Composer environment files (--env-file) as well as configurations you may 
-	mount in a container should be placed in the conf/ folder. You might also 
-	put YAML overrides for your service to add a `config:` stanza to your service.
-
-	Targeting a development workflow, docker configs and secrets are not integrated
-	into this project-starter, but it should be compatible if your project uses them.
-
-	The secret/ folder will just help separate sensitive passwords and keys from 
-	mundane configurations to help you migrate later to a secret manager.
-
-WRAPPED DOCKER-COMPOSE COMMANDS
-	
-	Defines a pattern-rule for dkc-% to wrap docker-compose commands.
-
-e.g. 
-	SERVICE=apache make dkc-up => docker-compose up -d apache
-	TASK=bash make dkc-run => docker-compose run --rm bash
-
-	Run-Remove and Run-Detached are separated into dkc-run and dkc-rund aliases.
-
-COMMAND ARGUMENTS
-
-	Arguments to docker-compose commands can be passed either with CMD_ARGS or EXEC_CMD.
-
-	CMD_ARGS are appended to any service command invoked by the wrapper (dkc-%).
-
-	EXEC_CMD is appended only when invoking dkc-exec.
-
 MORE ON GETTING STARTED WITH DOCKER COMPOSE
 
 	If you are a developer still new to all of this infrastructure as code world,
 	run `make dkc-rtfm` for some sign-posts.
 endef
 
+ifndef STACK
+$(warning STACK is not defined.)
+endif
+
+include-if = $(if $(wildcard $1/$2),-f $1/$2)
+STACK_NAME := $(shell echo "$${STACK}" | tr A-Z a-z)
+STACK_ID := $(shell echo "$${STACK}" | tr a-z A-Z)
+stack-env-file = $(if $(wildcard stack/${STACK_NAME}.env),--env-file=stack/${STACK_NAME}.env.env)
+
 ifdef SERVICE
--include service/${SERVICE}.conf
+task-yml := $(if $(wildcard service/${SERVICE}.yml), service/${SERVICE}.yml)
 endif
 
 ifdef TASK
--include shell/${TASK}.conf
+task-yml := $(if $(wildcard shell/${TASK}.yml), shell/${TASK}.yml)
 endif
 
-compose.yml = ${ENV_FILE} ${PROJECT_DIR} ${NETWORK_YML} ${VOLUMES_YML} ${CONFIGS_YML} $(or ${SERVICE_YML},${TASK_YML})
+define set-action
+$(filter-out rund,$*)\
+$(if $(filter rund,$*),run -d)\
+$(if $(filter run,$*),--rm)\
+$(if $(filter up,$*),-d)
+endef
 
-dkc-%:
-	$(eval TASK := $(or ${SERVICE},${TASK}))
-	$(eval ACTION := $(if $(filter rund,$*),run -d,$*))
-	$(eval ACTION := ${ACTION} $(if $(filter run,${ACTION}),--rm))
-	$(eval ACTION := ${ACTION} $(if $(filter up,${ACTION}),-d))
-	-docker-compose ${compose.yml} ${ACTION} $(if $(filter-out down config,$*), ${TASK}) \
-		$(if $(filter run exec,${ACTION}),${EXEC_CMD}) ${CMD_ARGS}
+ifdef ${STACK_ID}_STACK
+STACK_SERVICES := ${${STACK_ID}_STACK}
+endif
 
-stack-%:
-	$(eval export STACK)
-	$(eval STACK := $(shell echo "$${STACK}" | tr a-z A-Z))
-	$(foreach svc,${${STACK}_STACK}, SERVICE=${svc} $(MAKE) dkc-$*;)
+define stack-config-includes
+$(foreach type,stack network volume config,$(call include-if,${type},${STACK_NAME}.yml))\
+$(foreach svc,${STACK_SERVICES},$(call include-if,service,${svc}.yml))
+endef
+
+%.yml:
+	docker-compose --project-directory . ${stack-config-includes} config > $@
+
+# # #
+# stack-aware dkc svc command invocation
+#
+dkc-% stack-% svc-% task-%: ${STACK_NAME}.yml ${task-yml}
+	docker-compose $(stack-env-file) $(foreach f,$^,-f $f) $(set-action) ${DK_CMP_OPTS} $(if $(filter-out down config,$*),$(or ${SERVICE},${TASK})) $(if $(filter rund run exec,$*),${RUN_CMD}) ${CMD_ARGS}
 
 # # #
 # HALP
