@@ -8,9 +8,20 @@ define HELP_TXT :=
 
 				DECOMPOSING COMPOSER DEFINITIONS
 
-	To escape the defaults set with the assumption that only one stack is defined
-	in a working directory, multiple declarations are composed with subsequent
-	COMPOSE_FILE parameters ( -f ) to docker-compose. 
+	Container composition files define service stacks constructed of 
+	orchestrated tasks. Docker compose assumes one stack in a working directory 
+	and one stack per composition file.  Utilizing multiple stacks in different 
+	configurations of similar services causes duplication of service and global 
+	object declarations.
+
+	Decomposer then migrates global objects to automated includes in folders:
+	 - network/
+	 - volume/
+	 - config/
+	
+	Stacks can be defined by a list of service names that are automatically 
+	included as COMPOSE_FILE ( -f ) arguments.
+
 
 EXAMPLES
 
