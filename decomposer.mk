@@ -1,5 +1,5 @@
 -include composition.conf
--include shell/${TASK}.conf
+-include service/${TASK}.conf
 -include stack/${STACK}.conf
 
 .DEFAULT_GOAL := help
@@ -31,12 +31,12 @@ EXAMPLES
 
 	STACK=lamp make stack-config CMD_ARGS=--services
 	
-	STACK=lamp make stack-build SERVICE=php8-apache DK_CMP_OPTS='--no-cache'
+	STACK=lamp make stack-build TASK=php8-apache DK_CMP_OPTS='--no-cache'
 
-	STACK=lamp make stack-exec SERVICE=php8-apache RUN_CMD='php -i'
+	STACK=lamp make stack-exec TASK=php8-apache RUN_CMD='php -i'
 
 	[alias for run -d]
-	STACK=lamp make stack-rund SERVICE=mysql RUN_CMD='php -i'
+	STACK=lamp make stack-rund TASK=mysql RUN_CMD='php -i'
 
 CONCEPTS
 
@@ -62,12 +62,7 @@ FOLDERS
 	- service/ -
 	Service declarations, intended to be composed into stacks, so excluding
 	any other top-level compose-file entities. NB: paths, such as build-context,
-	 should be relative to the project directory.
-
-	- shell/ -
-	Conventional placement of docker-compose service declarations not part of a 
-	stack. NB: paths, such as build-context, should be relative to the project 
-	directory.
+	should be relative to the project directory.
 
 	- network/, volume/, config/ -
 	Optional location for top-level compose-file configurations. File-name 
@@ -78,7 +73,7 @@ DEFINING STACKS
 	Define stacks in the global composition.conf by listing the services in a 
 	var with the suffix, "_STACK". 
 	
-	Or: define the STACK_SERVICES list in the stack/<stack>.yml file.
+	Or: define the STACK_SERVICES list in the stack/<stack>.conf file.
 
 	The docker-compose wrapper is wrapped again as stack-%, so that the stack
 	command is run for each service.
@@ -97,21 +92,26 @@ ifndef STACK
 $(warning STACK is not defined.)
 endif
 
+export IMAGE
+export WORKING_DIR
+export ENTRYPOINT
+export DK_CMP_OPTS
+export RUN_CMD
+export CMD_ARGS
+
 include-if = $(if $(wildcard $1/$2),-f $1/$2)
 STACK_NAME := $(shell echo "$${STACK}" | tr A-Z a-z)
 STACK_ID := $(shell echo "$${STACK}" | tr a-z A-Z)
-stack-env-file = $(if $(wildcard stack/${STACK_NAME}.env),--env-file=stack/${STACK_NAME}.env.env)
-
-ifdef SERVICE
-task-yml := $(if $(wildcard service/${SERVICE}.yml), service/${SERVICE}.yml)
-endif
+stack-env-file = stack/${STACK_NAME}.env
+--env-file = $(if $(wildcard ${stack-env-file}),--env-file=${stack-env-file})
 
 ifdef TASK
-task-yml := $(if $(wildcard shell/${TASK}.yml), shell/${TASK}.yml)
+task-yml := $(if $(wildcard service/${TASK}.yml), service/${TASK}.yml)
 endif
 
 define set-action
-$(filter-out rund,$*)\
+$(filter-out down rund,$*)\
+$(if $(filter down,$*),$(if ${TASK},rm --force --stop,down))\
 $(if $(filter rund,$*),run -d)\
 $(if $(filter run,$*),--rm)\
 $(if $(filter up,$*),-d)
@@ -126,14 +126,28 @@ $(foreach type,stack network volume config,$(call include-if,${type},${STACK_NAM
 $(foreach svc,${STACK_SERVICES},$(call include-if,service,${svc}.yml))
 endef
 
+%.env:
+	cat ${ENV_INCLUDES} >$@
+
 %.yml:
 	docker-compose --project-directory . ${stack-config-includes} config > $@
 
 # # #
 # stack-aware dkc svc command invocation
 #
-dkc-% stack-% svc-% task-%: ${STACK_NAME}.yml ${task-yml}
-	docker-compose $(stack-env-file) $(foreach f,$^,-f $f) $(set-action) ${DK_CMP_OPTS} $(if $(filter-out down config,$*),$(or ${SERVICE},${TASK})) $(if $(filter rund run exec,$*),${RUN_CMD}) ${CMD_ARGS}
+stack-% task-% dkc-%: ${STACK_NAME}.yml ${task-yml} | ${stack-env-file}
+	docker-compose ${--env-file} $(foreach f,$^,-f $f) $(set-action) ${DK_CMP_OPTS} $(if $(filter-out config,$*),${TASK}) $(if $(filter rund run exec,$*),${RUN_CMD}) ${CMD_ARGS}
+
+
+run: task-run
+rund: task-rund
+stop: task-stop
+rm: task-rm
+up: stack-up
+down: stack-down
+build: task-build
+logs: task-logs
+exec: task-exec
 
 # # #
 # HALP
@@ -150,10 +164,10 @@ define DKC_RTFM
 
 	- Project Name and Networks - 
 
-	The current directory becomes the working path for
-	building containers, and is the default value of COMPOSER_PROJECT_NAME. By 
-	default, containers are joined to the network created automatically by adding
-	the suffix "_default" to the COMPOSER_PROJECT_NAME. 
+	The current directory becomes the working path for building containers, and 
+	is the default value of COMPOSER_PROJECT_NAME. By default, containers are 
+	joined to the network created automatically by adding the suffix "_default" 
+	to the COMPOSER_PROJECT_NAME. 
 
 	https://stackunderflow.dev/p/network-namespaces-and-docker/
 
@@ -223,7 +237,7 @@ define DKC_RTFM
 	and extensions to your base service definitions. This probably works great for
 	automation, but gets klunky quickly for a developer workflow and leads to a 
 	lot of typing. Decomposer exploits this feature and makes it trivial to define
-	alternate modes as separate stacks and keeping key-strokes to a minimum.
+	alternate modes as separate stacks and keeping declarations concise.
 
 	To create overrides, you need to provide the context of your YAML snipit so it can
 	be readily merged with Compose files passed to the command previously. So,
