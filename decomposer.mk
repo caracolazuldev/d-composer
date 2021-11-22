@@ -91,7 +91,9 @@ endef
 ifndef STACK
 $(warning STACK is not defined.)
 endif
+STACK := $(strip ${STACK})
 
+export STACK
 export IMAGE
 export WORKING_DIR
 export ENTRYPOINT
@@ -100,8 +102,8 @@ export RUN_CMD
 export CMD_ARGS
 
 include-if = $(if $(wildcard $1/$2),-f $1/$2)
-STACK_NAME := $(shell echo "$${STACK}" | tr A-Z a-z)
-STACK_ID := $(shell echo "$${STACK}" | tr a-z A-Z)
+STACK_NAME := $(shell echo "${STACK}" | tr A-Z a-z)
+STACK_ID := $(shell echo "${STACK}" | tr a-z A-Z)
 stack-env-file = stack/${STACK_NAME}.env
 --env-file = $(if $(wildcard ${stack-env-file}),--env-file=${stack-env-file})
 
