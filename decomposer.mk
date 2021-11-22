@@ -110,8 +110,9 @@ task-yml := $(if $(wildcard service/${TASK}.yml), service/${TASK}.yml)
 endif
 
 define set-action
-$(filter-out down rund,$*)\
+$(filter-out down rund orphans,$*)\
 $(if $(filter down,$*),$(if ${TASK},rm --force --stop,down))\
+$(if $(filter orphans,$*),down --remove-orphans)\
 $(if $(filter rund,$*),run -d)\
 $(if $(filter run,$*),--rm)\
 $(if $(filter up,$*),-d)
@@ -135,19 +136,19 @@ endef
 # # #
 # stack-aware dkc svc command invocation
 #
-stack-% task-% dkc-%: ${STACK_NAME}.yml ${task-yml} | ${stack-env-file}
+dkc-%: ${STACK_NAME}.yml ${task-yml} | ${stack-env-file}
 	docker-compose ${--env-file} $(foreach f,$^,-f $f) $(set-action) ${DK_CMP_OPTS} $(if $(filter-out config,$*),${TASK}) $(if $(filter rund run exec,$*),${RUN_CMD}) ${CMD_ARGS}
 
-
-run: task-run
-rund: task-rund
-stop: task-stop
-rm: task-rm
-up: stack-up
-down: stack-down
-build: task-build
-logs: task-logs
-exec: task-exec
+run: dkc-run
+rund: dkc-rund
+stop: dkc-stop
+rm: dkc-rm
+up: dkc-up
+down: dkc-down
+build: dkc-build
+logs: dkc-logs
+exec: dkc-exec
+orphans: dkc-orphans
 
 # # #
 # HALP
