@@ -133,6 +133,7 @@ endef
 	cat ${ENV_INCLUDES} >$@
 
 %.yml:
+	# @docker-compose --project-directory . ${stack-config-includes} config > $@ 2>/dev/null
 	docker-compose --project-directory . ${stack-config-includes} config > $@
 
 # # #
