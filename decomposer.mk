@@ -16,18 +16,21 @@ endif
 
 if-file = $(if $(wildcard $1/$2), $1/$2)
 
+# # #
 # /dev/null to avoid error from `cat` if no env files are used.
+# precedence of .env files by location or declaration:
+# ENV_INCLUDES > stack/${STACK_ID}.env > stack/ > service/
 define stack-env-includes
-/dev/null ${ENV_INCLUDES}\
-$(foreach svc,${STACK_SERVICES},$(call if-file,service,${svc}.env))\
-$(foreach svc,${STACK_SERVICES},$(call if-file,stack,${svc}.env))
+/dev/null \
+$(foreach svc,${STACK_SERVICES} ${TASK},$(call if-file,service,${svc}.env)) \
+$(foreach stk,${STACK_SERVICES} ${STACK_ID} ${TASK},$(call if-file,stack,${stk}.env)) \
+${ENV_INCLUDES}
 endef
 
-%.env:
-	@# aggregate stack env includes and task env, if exists
-	@ cat ${stack-env-includes} $(if $(wildcard service/${TASK}.env), service/${TASK}.env) >$@
+.%.env:
+	@ cat ${stack-env-includes} >$@
 
-stack-env-file = stack/${STACK_NAME}.env
+stack-env-file = .${STACK_NAME}.env
 --env-file = $(if $(wildcard ${stack-env-file}),--env-file=${stack-env-file})
 
 include-if = $(if $(wildcard $1/$2),-f $1/$2)
@@ -39,10 +42,6 @@ endef
 
 %.yml:
 	@ docker-compose --project-directory . ${stack-config-includes} config > $@ 2>/dev/null
-
-ifdef TASK
-task-yml := $(if $(wildcard service/${TASK}.yml), service/${TASK}.yml)
-endif
 
 # # #
 # set and customize docker-compose commands
@@ -60,7 +59,7 @@ endef
 # docker-compose wrapper
 # # #
 
-dkc-%: ${STACK_NAME}-compose.yml ${task-yml} | ${stack-env-file}
+dkc-%: .${STACK_NAME}-compose.yml $(if $(wildcard service/${TASK}.yml), service/${TASK}.yml) | ${stack-env-file}
 	@ docker-compose ${--env-file} $(foreach f,$^,-f $f) $(set-action) ${DK_CMP_OPTS} $(if $(filter-out config,$*),${TASK}) $(if $(filter rund run exec,$*),${RUN_CMD}) ${CMD_ARGS}
 
 # # #
@@ -147,7 +146,7 @@ ALIASES
 MORE ON GETTING ORIENTED TO DECOMPOSER
 
 	For more on folder structure, environment variables and configuration files,
-	run `make dcp-orient`.
+	run `make dcp-orientation`.
 
 MORE ON GETTING STARTED WITH DOCKER COMPOSE
 
@@ -179,7 +178,7 @@ FOLDERS
 	- stack/ -
 	define stacks in .conf, .env, and .yml files, named by stack-name.
 	 - <stack>.env will be passed in --env-file to docker-compose.
-	 - <stack>.conf is included in make and can define the STACK_SERVICES list
+	 - <stack>.conf is included in make and effects decomposer
 	 - <stack>.yml defines top-level docker-compose entities like volumes, config, etc.
 	
 	- service/ -
@@ -206,6 +205,28 @@ DEFINING STACKS
 	If defined, ${STACK_ID}_STACK is appended to the STACK_SERVICES list. The 
 	suggested convention is to define ".._STACK" in your stack-conf file and
 	use STACK_SERVICES for ad hoc command line invocations.
+
+ENVIRONMENT FILE PRECEDENCE
+
+	As multiple environment files are aggregated, later settings will 
+	supersede earlier settings. This can be a double-edged sword, so attention
+	should be given to the precedence of automatic aggregation. 
+
+	In order of precedence (reverse order of inclusion):
+
+	 - variables from your executing shell environment
+	 - exported variables in the stack/$${STACK}.conf
+	 - files listed in ENV_INCLUDES (increasing order of precedence)
+	 - stack/$${STACK}.env
+	 - files automatically included (not from ENV_INCLUDES) in stack/
+	 - files automatically included in service/
+
+	 Observe that any declaration can be overridden by adding a file to the end
+	 of the ENV_INCLUDES list. If services have env files, you can override them
+	 in the stack/ folder.
+
+	If TASK is defined, the so-named env file rises in precedence over it's 
+	peers in the folder but NOT over the stack/STACK.env or the ENV_INCLUDES files.
 
 endef
 
@@ -324,7 +345,7 @@ endef
 help:
 	$(info $(HELP_TXT))
 
-dcp-orient:
+dcp-orientation:
 	$(info $(DCP_ORIENTATION))
 
 dkc-rtfm:
