@@ -60,7 +60,7 @@ endef
 # docker-compose wrapper
 # # #
 
-dkc-%: ${STACK_NAME}.yml ${task-yml} | ${stack-env-file}
+dkc-%: ${STACK_NAME}-compose.yml ${task-yml} | ${stack-env-file}
 	@ docker-compose ${--env-file} $(foreach f,$^,-f $f) $(set-action) ${DK_CMP_OPTS} $(if $(filter-out config,$*),${TASK}) $(if $(filter rund run exec,$*),${RUN_CMD}) ${CMD_ARGS}
 
 # # #
