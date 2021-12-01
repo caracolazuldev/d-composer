@@ -1,4 +1,3 @@
--include decomposer.conf
 -include service/${TASK}.conf
 -include stack/${STACK}.conf
 
