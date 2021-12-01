@@ -130,7 +130,8 @@ $(foreach svc,${STACK_SERVICES},$(call include-if,service,${svc}.yml))
 endef
 
 %.env:
-	cat ${ENV_INCLUDES} >$@
+	@# aggregate stack env includes and task env, if exists
+	cat ${ENV_INCLUDES} $(if $(wildcard service/${TASK}.env), service/${TASK}.env, /dev/null) >$@
 
 %.yml:
 	# @docker-compose --project-directory . ${stack-config-includes} config > $@ 2>/dev/null
