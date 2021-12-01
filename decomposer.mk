@@ -45,14 +45,18 @@ endef
 
 # # #
 # set and customize docker-compose commands
-# and implement custom invocations, e.g. rund, orphans
+# and implement custom actions
+# # #
+custom-actions := down rund orphans services
+
 define set-action
-$(filter-out down rund orphans,$*)\
+$(filter-out ${custom-actions},$*)\
 $(if $(filter down,$*),$(if ${TASK},rm --force --stop,down))\
 $(if $(filter orphans,$*),down --remove-orphans)\
 $(if $(filter rund,$*),run -d)\
 $(if $(filter run,$*),--rm)\
-$(if $(filter up,$*),-d)
+$(if $(filter up,$*),-d)\
+$(if $(filter services,$*),config --services)
 endef
 
 # # #
@@ -76,6 +80,7 @@ orphans: dkc-orphans
 rm: dkc-rm
 run: dkc-run
 rund: dkc-rund
+services: dkc-services
 start: dkc-start
 stop: dkc-stop
 top: dkc-top
