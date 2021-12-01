@@ -4,90 +4,6 @@
 
 .DEFAULT_GOAL := help
 
-define HELP_TXT :=
-
-				DECOMPOSING COMPOSER DEFINITIONS
-
-	Container composition files define service stacks constructed of 
-	orchestrated tasks. Docker compose assumes one stack in a working directory 
-	and one stack per composition file.  Utilizing multiple stacks in different 
-	configurations of similar services causes duplication of service and global 
-	object declarations.
-
-	Decomposer then migrates global objects to automated includes in folders:
-	 - network/
-	 - volume/
-	 - config/
-	
-	Stacks can be defined by a list of service names that are automatically 
-	included as COMPOSE_FILE ( -f ) arguments.
-
-
-EXAMPLES
-
-	STACK=lamp make stack-up
-
-	TASK=shell make task-run
-
-	STACK=lamp make stack-config CMD_ARGS=--services
-	
-	STACK=lamp make stack-build TASK=php8-apache DK_CMP_OPTS='--no-cache'
-
-	STACK=lamp make stack-exec TASK=php8-apache RUN_CMD='php -i'
-
-	[alias for run -d]
-	STACK=lamp make stack-rund TASK=mysql RUN_CMD='php -i'
-
-CONCEPTS
-
-	- Stack: -
-	abstraction of a compose-file (docker-compose.yml), or a collection of 
-	services that share a network namespace.
-
-	- Service: -
-	a docker-compose service
-
-	- Task: -
-	a docker-compose service conventionally not part of a stack, declared
-	to be used with docker-compose run.
-
-FOLDERS
-
-	- stack/ -
-	define stacks in .conf, .env, and .yml files, named by stack-name.
-	 - <stack>.env will be passed in --env-file to docker-compose.
-	 - <stack>.conf is included in make and can define the STACK_SERVICES list
-	 - <stack>.yml defines top-level docker-compose entities like volumes, config, etc.
-	
-	- service/ -
-	Service declarations, intended to be composed into stacks, so excluding
-	any other top-level compose-file entities. NB: paths, such as build-context,
-	should be relative to the project directory.
-
-	- network/, volume/, config/ -
-	Optional location for top-level compose-file configurations. File-name 
-	should be <stack-name>.yml
-
-DEFINING STACKS
-
-	Define stacks in the global composition.conf by listing the services in a 
-	var with the suffix, "_STACK". 
-	
-	Or: define the STACK_SERVICES list in the stack/<stack>.conf file.
-
-	The docker-compose wrapper is wrapped again as stack-%, so that the stack
-	command is run for each service.
-
-	e.g. STACK=LAMP make stack-up
-
-	... to activate the stack defined as LAMP_STACK := php-apache mysql
-
-MORE ON GETTING STARTED WITH DOCKER COMPOSE
-
-	If you are a developer still new to all of this infrastructure as code world,
-	run `make dkc-rtfm` for some sign-posts.
-endef
-
 ifndef STACK
 $(warning STACK is not defined.)
 endif
@@ -157,6 +73,102 @@ orphans: dkc-orphans
 # # #
 # HALP
 # # #
+
+define HELP_TXT :=
+
+				DECOMPOSING COMPOSER DEFINITIONS
+
+	Container composition files define service stacks constructed of 
+	orchestrated tasks. Docker compose assumes one stack in a working directory 
+	and one stack per composition file.  Utilizing multiple stacks in different 
+	configurations of similar services causes duplication of service and global 
+	object declarations.
+
+	Decomposer then migrates global objects to automated includes in folders:
+	 - network/
+	 - volume/
+	 - config/
+	
+	Stacks can be defined by a list of service names that are automatically 
+	included as COMPOSE_FILE ( -f ) arguments.
+
+
+EXAMPLES
+
+	STACK=lamp make stack-up
+
+	TASK=shell make task-run
+
+	STACK=lamp make stack-config CMD_ARGS=--services
+	
+	STACK=lamp make stack-build TASK=php8-apache DK_CMP_OPTS='--no-cache'
+
+	STACK=lamp make stack-exec TASK=php8-apache RUN_CMD='php -i'
+
+	[alias for run -d]
+	STACK=lamp make stack-rund TASK=mysql RUN_CMD='php -i'
+
+MORE ON GETTING ORIENTED TO DECOMPOSER
+
+	For more on folder structure, environment variables and configuration files,
+	run `make dcp-orient`.
+
+MORE ON GETTING STARTED WITH DOCKER COMPOSE
+
+	If you are a developer still new to all of this infrastructure as code world,
+	run `make dkc-rtfm` for some sign-posts.
+endef
+
+
+define DCP_ORIENTATION
+
+			ORIENTATION TO DECOMPOSER
+
+CONCEPTS
+
+	- Stack: -
+	abstraction of a compose-file (docker-compose.yml), or a collection of 
+	services that share a network namespace.
+
+	- Service: -
+	a docker-compose service
+
+	- Task: -
+	a docker-compose service conventionally not part of a stack, declared
+	to be used with docker-compose run.
+
+FOLDERS
+
+	- stack/ -
+	define stacks in .conf, .env, and .yml files, named by stack-name.
+	 - <stack>.env will be passed in --env-file to docker-compose.
+	 - <stack>.conf is included in make and can define the STACK_SERVICES list
+	 - <stack>.yml defines top-level docker-compose entities like volumes, config, etc.
+	
+	- service/ -
+	Service declarations, intended to be composed into stacks, so excluding
+	any other top-level compose-file entities. NB: paths, such as build-context,
+	should be relative to the project directory.
+
+	- network/, volume/, config/ -
+	Optional location for top-level compose-file configurations. File-name 
+	should be <stack-name>.yml
+
+DEFINING STACKS
+
+	Define stacks in the global composition.conf by listing the services in a 
+	var with the suffix, "_STACK". 
+	
+	Or: define the STACK_SERVICES list in the stack/<stack>.conf file.
+
+	The docker-compose wrapper is wrapped again as stack-%, so that the stack
+	command is run for each service.
+
+	e.g. STACK=LAMP make stack-up
+
+	... to activate the stack defined as LAMP_STACK := php-apache mysql
+
+endef
 
 define DKC_RTFM
 
@@ -273,6 +285,9 @@ endef
 
 help:
 	$(info $(HELP_TXT))
+
+dcp-orient:
+	$(info $(DCP_ORIENTATION))
 
 dkc-rtfm:
 	$(info $(DKC_RTFM))
