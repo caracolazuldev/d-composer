@@ -72,19 +72,25 @@ dkc-%: .${STACK_NAME}-compose.yml $(if $(wildcard service/${TASK}.yml), service/
 
 build: dkc-build
 config: dkc-config
+create: dkc-create
 down: dkc-down
-exec: dkc-exec
 events: dkc-events
+exec: dkc-exec
 logs: dkc-logs
-orphans: dkc-orphans
+pause: dkc-pause
+restart: dkc-restart
 rm: dkc-rm
 run: dkc-run
-rund: dkc-rund
 services: dkc-services
 start: dkc-start
 stop: dkc-stop
 top: dkc-top
+unpause: dkc-unpause
 up: dkc-up
+
+# custom decomposer cmds:
+orphans: dkc-orphans
+rund: dkc-rund
 
 # # #
 # HALP
