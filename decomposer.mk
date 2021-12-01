@@ -4,23 +4,42 @@
 .DEFAULT_GOAL := help
 
 ifndef STACK
-$(warning STACK is not defined.)
+	$(warning STACK is not defined.)
 endif
+
 STACK := $(strip ${STACK})
-
-export STACK
-export IMAGE
-export WORKING_DIR
-export ENTRYPOINT
-export DK_CMP_OPTS
-export RUN_CMD
-export CMD_ARGS
-
-include-if = $(if $(wildcard $1/$2),-f $1/$2)
 STACK_NAME := $(shell echo "${STACK}" | tr A-Z a-z)
 STACK_ID := $(shell echo "${STACK}" | tr a-z A-Z)
+ifdef ${STACK_ID}_STACK
+STACK_SERVICES += ${${STACK_ID}_STACK}
+endif
+
+if-file = $(if $(wildcard $1/$2), $1/$2)
+
+# /dev/null to avoid error from `cat` if no env files are used.
+define stack-env-includes
+/dev/null ${ENV_INCLUDES}\
+$(foreach svc,${STACK_SERVICES},$(call if-file,service,${svc}.env))\
+$(foreach svc,${STACK_SERVICES},$(call if-file,stack,${svc}.env))
+endef
+
+%.env:
+	@# aggregate stack env includes and task env, if exists
+	cat ${stack-env-includes} $(if $(wildcard service/${TASK}.env), service/${TASK}.env) >$@
+
 stack-env-file = stack/${STACK_NAME}.env
 --env-file = $(if $(wildcard ${stack-env-file}),--env-file=${stack-env-file})
+
+include-if = $(if $(wildcard $1/$2),-f $1/$2)
+
+define stack-config-includes
+$(foreach type,stack network volume config,$(call include-if,${type},${STACK_NAME}.yml))\
+$(foreach svc,${STACK_SERVICES},$(call include-if,service,${svc}.yml))
+endef
+
+%.yml:
+	@# docker-compose --project-directory . ${stack-config-includes} config > $@ 2>/dev/null
+	docker-compose --project-directory . ${stack-config-includes} config > $@
 
 ifdef TASK
 task-yml := $(if $(wildcard service/${TASK}.yml), service/${TASK}.yml)
@@ -35,28 +54,16 @@ $(if $(filter run,$*),--rm)\
 $(if $(filter up,$*),-d)
 endef
 
-ifdef ${STACK_ID}_STACK
-STACK_SERVICES := ${${STACK_ID}_STACK}
-endif
-
-define stack-config-includes
-$(foreach type,stack network volume config,$(call include-if,${type},${STACK_NAME}.yml))\
-$(foreach svc,${STACK_SERVICES},$(call include-if,service,${svc}.yml))
-endef
-
-%.env:
-	@# aggregate stack env includes and task env, if exists
-	cat ${ENV_INCLUDES} $(if $(wildcard service/${TASK}.env), service/${TASK}.env, /dev/null) >$@
-
-%.yml:
-	# @docker-compose --project-directory . ${stack-config-includes} config > $@ 2>/dev/null
-	docker-compose --project-directory . ${stack-config-includes} config > $@
-
 # # #
-# stack-aware dkc svc command invocation
-#
+# docker-compose wrapper
+# # #
+
 dkc-%: ${STACK_NAME}.yml ${task-yml} | ${stack-env-file}
 	docker-compose ${--env-file} $(foreach f,$^,-f $f) $(set-action) ${DK_CMP_OPTS} $(if $(filter-out config,$*),${TASK}) $(if $(filter rund run exec,$*),${RUN_CMD}) ${CMD_ARGS}
+
+# # #
+# Aliases
+# # #
 
 run: dkc-run
 rund: dkc-rund
@@ -64,6 +71,7 @@ stop: dkc-stop
 rm: dkc-rm
 up: dkc-up
 down: dkc-down
+restart: dkc-restart
 build: dkc-build
 logs: dkc-logs
 exec: dkc-exec
@@ -83,29 +91,49 @@ define HELP_TXT :=
 	configurations of similar services causes duplication of service and global 
 	object declarations.
 
-	Decomposer then migrates global objects to automated includes in folders:
-	 - network/
-	 - volume/
-	 - config/
-	
-	Stacks can be defined by a list of service names that are automatically 
-	included as COMPOSE_FILE ( -f ) arguments.
+	A decomposed docker-compose YAML file is then split into files in the stack/
+	and services/ folders, in .yml, .env, and .conf files. The purposes of these
+	files are:
+		- .env are aggregated into one file passed with `--env-file`
+		- stack/...yml defines top-level stack entities other than services
+		- service/...yml for each service, automatically aggregated
+		- stack/...conf to control the execution of decomposer
 
+ENV VARS
+
+	- COMPOSER_PROJECT_NAME 	[ derives the network name ]
+	- STACK_SERVICES 	[ $${STACK_ID}_STACK is appended if defined ]
+	- ENV_INCLUDES
+	- STACK 	[ derives STACK_ID (upper-case) and STACK_NAME (lower-case) ]
+	- TASK
+	- DK_CMP_OPTS	[ options to docker-compose command ]
+	- RUN_CMD		[ container commands ]
+	- CMD_ARGS		[ options to RUN_CMD ]
 
 EXAMPLES
 
-	STACK=lamp make stack-up
+	STACK must (almost) always be defined. Set and export it in your session 
+	for convenience. Setting TASK in your session has the potential to be risky.
 
-	TASK=shell make task-run
+	STACK=lamp make up
 
-	STACK=lamp make stack-config CMD_ARGS=--services
+	STACK=lamp TASK=shell make run
+
+	make config CMD_ARGS=--services
 	
-	STACK=lamp make stack-build TASK=php8-apache DK_CMP_OPTS='--no-cache'
+	make build TASK=php8-apache DK_CMP_OPTS='--no-cache'
 
-	STACK=lamp make stack-exec TASK=php8-apache RUN_CMD='php -i'
+	make exec TASK=php8-apache RUN_CMD='php -i'
 
 	[alias for run -d]
-	STACK=lamp make stack-rund TASK=mysql RUN_CMD='php -i'
+	make rund TASK=shell RUN_CMD='php' CMD_ARGS="-r 'phpinfo();'"
+
+ALIASES
+
+	Any docker-compose commands are available invoked with the prefix, "dkc-".
+	Invoke using the prefix if files or directories conflict with command names,
+	or if an alias does not exist. Most docker-compose commands are aliased
+	so they can be invoked simply e.g., `make build`, `make up`, etc.
 
 MORE ON GETTING ORIENTED TO DECOMPOSER
 
@@ -149,23 +177,25 @@ FOLDERS
 	any other top-level compose-file entities. NB: paths, such as build-context,
 	should be relative to the project directory.
 
-	- network/, volume/, config/ -
-	Optional location for top-level compose-file configurations. File-name 
-	should be <stack-name>.yml
-
 DEFINING STACKS
 
-	Define stacks in the global composition.conf by listing the services in a 
-	var with the suffix, "_STACK". 
+	A Stack requires a list of services, defined in the service/ folder, and
+	.env files, and a top-level .yml file for the entities
+	other than the services, e.g. networks and volumes. 
 	
-	Or: define the STACK_SERVICES list in the stack/<stack>.conf file.
+	Stack definitions are placed into the stack/ folder using the stack-name and
+	either a .conf, .yml, or .env extension. Environment files for services may
+	be placed in either the stack/ or services/ folders. 
 
-	The docker-compose wrapper is wrapped again as stack-%, so that the stack
-	command is run for each service.
+	Environment files for services will be automatically aggregated, but
+	additional environment files can be added from the ENV_INCLUDES variable.
 
-	e.g. STACK=LAMP make stack-up
+	A stack named "web", would then have a web.conf file that defines the services
+	in a WEB_STACK variable, and any additional ENV_INCLUDES.
 
-	... to activate the stack defined as LAMP_STACK := php-apache mysql
+	If defined, ${STACK_ID}_STACK is appended to the STACK_SERVICES list. The 
+	suggested convention is to define ".._STACK" in your stack-conf file and
+	use STACK_SERVICES for ad hoc command line invocations.
 
 endef
 
