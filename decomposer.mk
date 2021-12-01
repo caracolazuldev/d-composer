@@ -45,6 +45,9 @@ ifdef TASK
 task-yml := $(if $(wildcard service/${TASK}.yml), service/${TASK}.yml)
 endif
 
+# # #
+# set and customize docker-compose commands
+# and implement custom invocations, e.g. rund, orphans
 define set-action
 $(filter-out down rund orphans,$*)\
 $(if $(filter down,$*),$(if ${TASK},rm --force --stop,down))\
@@ -102,6 +105,8 @@ define HELP_TXT :=
 		- service/...yml for each service, automatically aggregated
 		- stack/...conf to control the execution of decomposer
 
+	TIP: `make dkc-config` to review the generated docker-composer.yml
+
 ENV VARS
 
 	- COMPOSER_PROJECT_NAME 	[ derives the network name ]
@@ -121,6 +126,8 @@ EXAMPLES
 	STACK=lamp make up
 
 	STACK=lamp TASK=shell make run
+
+	make TASK=mysqld top
 
 	make config CMD_ARGS=--services
 	
@@ -147,6 +154,7 @@ MORE ON GETTING STARTED WITH DOCKER COMPOSE
 
 	If you are a developer still new to all of this infrastructure as code world,
 	run `make dkc-rtfm` for some sign-posts.
+
 endef
 
 
@@ -311,7 +319,6 @@ DOCKER COMPOSE REFERENCES
  - https://docs.docker.com/compose/reference/envvars/
  - https://docs.docker.com/compose/compose-file/compose-file-v3/
  - https://docs.docker.com/compose/reference/
-
 
 endef
 
