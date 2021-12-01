@@ -65,17 +65,20 @@ dkc-%: ${STACK_NAME}.yml ${task-yml} | ${stack-env-file}
 # Aliases
 # # #
 
+build: dkc-build
+config: dkc-config
+down: dkc-down
+exec: dkc-exec
+events: dkc-events
+logs: dkc-logs
+orphans: dkc-orphans
+rm: dkc-rm
 run: dkc-run
 rund: dkc-rund
+start: dkc-start
 stop: dkc-stop
-rm: dkc-rm
+top: dkc-top
 up: dkc-up
-down: dkc-down
-restart: dkc-restart
-build: dkc-build
-logs: dkc-logs
-exec: dkc-exec
-orphans: dkc-orphans
 
 # # #
 # HALP
