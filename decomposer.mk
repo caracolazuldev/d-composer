@@ -92,7 +92,7 @@ up: dkc-up
 
 define HELP_TXT :=
 
-				DECOMPOSING COMPOSER DEFINITIONS
+				DECOMPOSING COMPOSE DEFINITIONS
 
 	Container composition files define service stacks constructed of 
 	orchestrated tasks. Docker compose assumes one stack in a working directory 
@@ -100,15 +100,15 @@ define HELP_TXT :=
 	configurations of similar services causes duplication of service and global 
 	object declarations.
 
-	A decomposed docker-compose YAML file is then split into files in the stack/
+	A decomposed docker-compose YAML file is therefore split into files in the stack/
 	and services/ folders, in .yml, .env, and .conf files. The purposes of these
 	files are:
 		- .env are aggregated into one file passed with `--env-file`
 		- stack/...yml defines top-level stack entities other than services
 		- service/...yml for each service, automatically aggregated
-		- stack/...conf to control the execution of decomposer
+		- stack/...conf to configure the execution of decomposer
 
-	TIP: `make dkc-config` to review the generated docker-composer.yml
+	TIP: `make dkc-config` to review the generated docker-compose.yml
 
 ENV VARS
 
