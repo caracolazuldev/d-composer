@@ -25,7 +25,7 @@ endef
 
 %.env:
 	@# aggregate stack env includes and task env, if exists
-	cat ${stack-env-includes} $(if $(wildcard service/${TASK}.env), service/${TASK}.env) >$@
+	@ cat ${stack-env-includes} $(if $(wildcard service/${TASK}.env), service/${TASK}.env) >$@
 
 stack-env-file = stack/${STACK_NAME}.env
 --env-file = $(if $(wildcard ${stack-env-file}),--env-file=${stack-env-file})
@@ -38,8 +38,7 @@ $(foreach svc,${STACK_SERVICES},$(call include-if,service,${svc}.yml))
 endef
 
 %.yml:
-	@# docker-compose --project-directory . ${stack-config-includes} config > $@ 2>/dev/null
-	docker-compose --project-directory . ${stack-config-includes} config > $@
+	@ docker-compose --project-directory . ${stack-config-includes} config > $@ 2>/dev/null
 
 ifdef TASK
 task-yml := $(if $(wildcard service/${TASK}.yml), service/${TASK}.yml)
@@ -62,7 +61,7 @@ endef
 # # #
 
 dkc-%: ${STACK_NAME}.yml ${task-yml} | ${stack-env-file}
-	docker-compose ${--env-file} $(foreach f,$^,-f $f) $(set-action) ${DK_CMP_OPTS} $(if $(filter-out config,$*),${TASK}) $(if $(filter rund run exec,$*),${RUN_CMD}) ${CMD_ARGS}
+	@ docker-compose ${--env-file} $(foreach f,$^,-f $f) $(set-action) ${DK_CMP_OPTS} $(if $(filter-out config,$*),${TASK}) $(if $(filter rund run exec,$*),${RUN_CMD}) ${CMD_ARGS}
 
 # # #
 # Aliases
