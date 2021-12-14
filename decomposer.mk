@@ -1,15 +1,12 @@
 -include service/${TASK}.conf
--include stack/${STACK}.conf
 
-.DEFAULT_GOAL := help
-
-ifndef STACK
-	$(warning STACK is not defined.)
-endif
-
+ifdef STACK
 STACK := $(strip ${STACK})
 STACK_NAME := $(shell echo "${STACK}" | tr A-Z a-z)
 STACK_ID := $(shell echo "${STACK}" | tr a-z A-Z)
+include stack/${STACK}.conf
+endif
+
 ifdef ${STACK_ID}_STACK
 STACK_SERVICES += ${${STACK_ID}_STACK}
 endif
