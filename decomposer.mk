@@ -4,7 +4,7 @@ ifdef STACK
 STACK := $(strip ${STACK})
 STACK_NAME := $(shell echo "${STACK}" | tr A-Z a-z)
 STACK_ID := $(shell echo "${STACK}" | tr a-z A-Z)
-include stack/${STACK}.conf
+include stack/${STACK_NAME}.conf
 endif
 
 ifdef ${STACK_ID}_STACK
