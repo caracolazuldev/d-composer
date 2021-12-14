@@ -60,16 +60,22 @@ $(if $(filter up,$*),-d)\
 $(if $(filter services,$*),config --services)
 endef
 
+define set-run-cmd
+$(if $(filter rund run exec,$*),\
+$(if ${RUN_CMD},\
+$(if $(filter,1,$(words ${RUN_CMD})),${RUN_CMD},'${RUN_CMD}')\
+)) ${CMD_ARGS}
+endef
+
 # # #
 # docker-compose wrapper
 # # #
 
 dkc-%: .${STACK_NAME}-compose.yml $(if $(wildcard service/${TASK}.yml), service/${TASK}.yml) | ${stack-env-file}
-	@ docker-compose ${--env-file} $(foreach f,$^,-f $f) \
+	docker-compose ${--env-file} $(foreach f,$^,-f $f) \
 	$(set-action) ${DK_CMP_OPTS} \
 	$(if ${WORKING_DIR},$(if $(filter rund run exec,$*),--workdir ${WORKING_DIR})) \
-	$(if $(filter-out config,$*),${TASK}) \
-	$(if $(filter rund run exec,$*),${RUN_CMD}) ${CMD_ARGS}
+	$(if $(filter-out config,$*),${TASK}) $(set-run-cmd)
 
 # # #
 # Aliases
