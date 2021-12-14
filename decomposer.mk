@@ -11,6 +11,10 @@ ifdef ${STACK_ID}_STACK
 STACK_SERVICES += ${${STACK_ID}_STACK}
 endif
 
+.DEFAULT_GOAL := help
+
+export WORKING_DIR
+
 if-file = $(if $(wildcard $1/$2), $1/$2)
 
 # # #
@@ -61,7 +65,11 @@ endef
 # # #
 
 dkc-%: .${STACK_NAME}-compose.yml $(if $(wildcard service/${TASK}.yml), service/${TASK}.yml) | ${stack-env-file}
-	@ docker-compose ${--env-file} $(foreach f,$^,-f $f) $(set-action) ${DK_CMP_OPTS} $(if $(filter-out config,$*),${TASK}) $(if $(filter rund run exec,$*),${RUN_CMD}) ${CMD_ARGS}
+	@ docker-compose ${--env-file} $(foreach f,$^,-f $f) \
+	$(set-action) ${DK_CMP_OPTS} \
+	$(if ${WORKING_DIR},$(if $(filter rund run exec,$*),--workdir ${WORKING_DIR})) \
+	$(if $(filter-out config,$*),${TASK}) \
+	$(if $(filter rund run exec,$*),${RUN_CMD}) ${CMD_ARGS}
 
 # # #
 # Aliases
