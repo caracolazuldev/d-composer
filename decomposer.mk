@@ -28,21 +28,58 @@ $(foreach stk,${STACK_SERVICES} ${STACK_ID} ${TASK},$(call if-file,stack,${stk}.
 ${ENV_INCLUDES}
 endef
 
-.%.env:
+stack-%.env:
 	@ cat ${stack-env-includes} >$@
+.PRECIOUS: stack-%.env
 
-stack-env-file = .${STACK_NAME}.env
+ifdef STACK
+stack-env-file = stack-${STACK_NAME}.env
 --env-file = $(if $(wildcard ${stack-env-file}),--env-file=${stack-env-file})
+endif
 
-include-if = $(if $(wildcard $1/$2),-f $1/$2)
+dkc-include-if = $(if $(wildcard $1/$2),-f $1/$2)
 
 define stack-config-includes
-$(foreach type,stack network volume config,$(call include-if,${type},${STACK_NAME}.yml))\
-$(foreach svc,${STACK_SERVICES},$(call include-if,service,${svc}.yml))
+$(foreach type,stack network volume config,$(call dkc-include-if,${type},${STACK_NAME}.yml))\
+$(foreach svc,${STACK_SERVICES},$(call dkc-include-if,service,${svc}.yml))
 endef
 
-%.yml:
-	@ docker-compose --project-directory . ${stack-config-includes} config > $@ 2>/dev/null
+%-compose.yml:
+	docker-compose --project-directory . ${stack-config-includes} config > $@ 2>/dev/null
+.PRECIOUS: %-compose.yml
+
+# # #
+# Manage multiple docker-compose files by 
+# linking different versions to the default docker-compose file name.
+# # #
+
+define safe-unlink-file
+	@# File is not a link, so back-up
+	@#$(or $(shell test -L $1 && echo 'TRUE'), $(call backup-file,$1))
+	@# File does not exist, or try to remove
+	@#$(if $(shell (test -L $1 || test -e $1) && echo 'TRUE'), $(shell rm -f $1))
+endef
+
+define backup-file
+	@# Abort if back-up location already exists
+	@#$(and $(shell test -f $1.tmp && echo 'ERROR'), \
+		$(error Can not back-up $1, aborting))
+	@# Back-up, unless the file does not exist
+	@#$(or $(shell test ! -e $1 && echo 'TRUE'), \
+		$(shell mv $1 $1.tmp && echo 'Backed-up to $1.tmp'))
+endef
+
+ifdef STACK
+activate: ${STACK}-compose.yml stack-${STACK_NAME}.env
+	$(call safe-unlink-file,.env)
+	$(call safe-unlink-file,docker-compose.yml)
+	ln -s ${STACK}-compose.yml docker-compose.yml
+	ln -s stack-${STACK_NAME}.env .env
+endif
+
+deactivate:
+	$(call safe-unlink-file,.env)
+	$(call safe-unlink-file,docker-compose.yml)
 
 # # #
 # set and customize docker-compose commands
@@ -71,7 +108,7 @@ endef
 # docker-compose wrapper
 # # #
 
-dkc-%: .${STACK_NAME}-compose.yml $(if $(wildcard service/${TASK}.yml), service/${TASK}.yml) | ${stack-env-file}
+dkc-%: $(if $(wildcard ${STACK_NAME}-compose.yml),${STACK_NAME}-compose.yml,docker-compose.yml) $(if $(wildcard service/${TASK}.yml), service/${TASK}.yml) ${stack-env-file}
 	docker-compose ${--env-file} $(foreach f,$^,-f $f) \
 	$(set-action) ${DK_CMP_OPTS} \
 	$(if ${WORKING_DIR},$(if $(filter rund run exec,$*),--workdir ${WORKING_DIR})) \
@@ -344,7 +381,7 @@ define DKC_RTFM
 	"volumes:", "configs:", etc.
 
 	The second important concept is the environment file. By default, .env will 
-	be used but an alternate canbe specified with --env-file option.
+	be used but an alternate can be specified with --env-file option.
 	https://docs.docker.com/compose/env-file/
 
 	Tips and Gotchas:
