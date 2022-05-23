@@ -1,22 +1,28 @@
-
-ENABLE_ALIASES := $(if $(and $(wildcard docker-compose.yml),$(wildcard .env)),ENABLE)
-
-ifdef STACK
-STACK := $(strip ${STACK})
-else
-STACK := $(if $(wildcard .active),$(strip $(subst STACK=,,$(shell grep STACK $(wildcard .active)))))
+ifndef STACK
+STACK := $(if $(wildcard .active),\
+	$(subst STACK=,,$(shell grep STACK $(wildcard .active))))
+INACTIVE := $(if $(wildcard .active),\
+	$(subst INACTIVE=,,$(shell grep INACTIVE $(wildcard .active))))
 endif
 
+STACK := $(strip ${STACK})
+
+ifndef STACK
+STACK := NULL# enable few commands to run, such as help and command completion
+endif
+
+ifneq (${STACK},NULL)
 STACK_NAME := $(shell echo "${STACK}" | tr A-Z a-z)
 STACK_ID := $(shell echo "${STACK}" | tr a-z A-Z)
--include ${STACK_NAME}.stack
+include ${STACK_NAME}.stack
+endif
 
+ifdef DEBUG
 $(info STACK::${STACK})
 $(info ${STACK_SERVICES})
+endif
 
 .DEFAULT_GOAL := help
-
-export WORKING_DIR
 
 if-file-in = $(if $(wildcard $1/$2), $1/$2)
 
@@ -31,8 +37,8 @@ $(foreach stk,${STACK_SERVICES} ${STACK_ID} ${TASK},$(call if-file-in,.,${stk}.s
 ${ENV_INCLUDES}
 endef
 
-%.stack.env:
-	@ cat ${stack-env-includes} >$@
+%.stack.env: ${stack-env-includes}
+	cat $^ >$@
 
 ifdef STACK
 stack-env-file = ${STACK_NAME}.stack.env
@@ -45,44 +51,34 @@ $(foreach svc,${STACK_SERVICES},$(call if-file-in,docker,${svc}.yml))
 endef
 
 %-compose.yml: ${stack-config-includes}
-	docker-compose --project-directory=. $(foreach f,${stack-config-includes},-f $f) config > $@ 2>/dev/null
+	docker-compose --project-directory=. $(foreach f,$^,-f $f) config > $@ 2>/dev/null
 
-# # #
-# Manage multiple docker-compose files by 
-# linking different versions to the default docker-compose file name.
-# # #
-
-define safe-unlink-file
-	@# File is not a link, so back-up
-	@#$(or $(shell test -L $1 && echo 'TRUE'), $(call backup-file,$1))
-	@# File does not exist, or try to remove
-	@#$(if $(shell (test -L $1 || test -e $1) && echo 'TRUE'), $(shell rm -f $1))
-endef
-
-define backup-file
-	@# Abort if back-up location already exists
-	@#$(and $(shell test -f $1.tmp && echo 'ERROR'), \
-		$(error Can not back-up $1, aborting))
-	@# Back-up, unless the file does not exist
-	@#$(or $(shell test ! -e $1 && echo 'TRUE'), \
-		$(shell mv $1 $1.tmp && echo 'Backed-up to $1.tmp'))
-endef
-
-activate: $(if ${STACK},${STACK_NAME}-compose.yml ${STACK_NAME}.stack.env)
-ifdef STACK
-	$(call safe-unlink-file,.env)
-	$(call safe-unlink-file,docker-compose.yml)
-	ln -s ${STACK_NAME}-compose.yml docker-compose.yml
-	ln -s stack-${STACK_NAME}.stack.env .env
-	echo "STACK=${STACK}" > .active
-else
-	$(error STACK is not defined)
+ifndef DEBUG
+.INTERMEDIATE: ${STACK_NAME}.stack.env ${STACK_NAME}-compose.yml
 endif
 
+docker-compose.yml: ${STACK_NAME}-compose.yml
+	cp $< $@
+
+.env: ${STACK_NAME}.stack.env
+	cp $< $@
+
+activate:
+ifeq (${STACK},NULL)
+	$(eval export STACK=${INACTIVE})
+endif
+	$(MAKE) .env docker-compose.yml 
+	echo "STACK=${STACK}" > .active
+
+rm-file = $(if $(shell (test -L $1 || test -e $1) && echo 'TRUE'), \
+	$(shell rm -f $1 && echo 'rm -f $1'))
+
 deactivate:
-	$(call safe-unlink-file,.env)
-	$(call safe-unlink-file,docker-compose.yml)
-	truncate -s 0 .active && rm .active
+	$(foreach f,.env docker-compose.yml ${STACK_NAME}.stack.env ${STACK_NAME}-compose.yml,\
+		$(call rm-file,$f))
+ifneq (${STACK},NULL)
+	echo "INACTIVE=${STACK}" > .active
+endif
 
 # # #
 # set and customize docker-compose commands
@@ -118,10 +114,12 @@ endef
 # docker-compose wrapper
 # # #
 
+export WORKING_DIR # set --workdir option to run, exec, etc.
+
 #
 # we set project-dir explicitly because we do not want it determined by include file dirs.
 #
-dkc-%: $(if ${STACK},${STACK_NAME}-compose.yml) $(if $(wildcard docker/${TASK}.yml), docker/${TASK}.yml)
+dkc-%: docker-compose.yml $(if $(wildcard docker/${TASK}.yml), docker/${TASK}.yml) | .env
 	@docker-compose --project-dir=. ${--env-file} $(foreach f,$^,-f $f) \
 	$(set-action) ${DK_CMP_OPTS} \
 	$(if ${WORKING_DIR},$(if $(filter rund run exec,$*),--workdir ${WORKING_DIR})) \
@@ -137,6 +135,9 @@ endif
 
 config: dkc-config
 services: dkc-services
+run: dkc-run
+
+ENABLE_ALIASES := $(if $(and $(wildcard docker-compose.yml),$(wildcard .env)),ENABLE)
 
 ifdef ENABLE_ALIASES
 build: dkc-build
@@ -148,7 +149,6 @@ logs: dkc-logs
 pause: dkc-pause
 restart: dkc-restart
 rm: dkc-rm
-run: dkc-run
 start: dkc-start
 stop: dkc-stop
 top: dkc-top
