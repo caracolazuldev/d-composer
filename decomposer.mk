@@ -31,6 +31,9 @@ endif
 
 if-file-in = $(if $(wildcard $1/$2), $1/$2)
 
+rm-file = $(if $(shell (test -L $1 || test -e $1) && echo 'TRUE'), \
+	$(shell rm -f $1 && echo 'rm -f $1'))
+
 # # #
 # Generate derived docker-compose files
 # # #
@@ -93,9 +96,6 @@ endif
 	$(info STACK:${STACK})
 	$(info SERVICES:${STACK_SERVICES})
 
-rm-file = $(if $(shell (test -L $1 || test -e $1) && echo 'TRUE'), \
-	$(shell rm -f $1 && echo 'rm -f $1'))
-
 deactivate:
 	$(foreach f,.env docker-compose.yml ${STACK_NAME}.stack.env ${STACK_NAME}-compose.yml,\
 		$(call rm-file,$f))
@@ -123,7 +123,7 @@ $(if $(filter up,$*),-d)\
 $(if $(filter services,$*),config --services)
 endef
 
-#
+# # #
 # docker run command-parameter
 #
 define set-run-cmd
@@ -137,8 +137,6 @@ endef
 # docker-compose wrapper
 # # #
 
-export WORKING_DIR # set --workdir option to run, exec, etc.
-
 #
 # we set project-dir explicitly because we do not want it determined by include file dirs.
 #
@@ -148,7 +146,7 @@ dkc-%: $(if $(filter-out NULL,${STACK}),docker-compose.yml) $(if $(filter-out NU
 	$(if ${WORKING_DIR},$(if $(filter rund run exec,$*),--workdir ${WORKING_DIR})) \
 	$(if $(filter-out config,$*),${TASK}) $(set-run-cmd)
 ifdef DEBUG
-	$(info ACTION::$(set-action) RUN-CMD::$(set-run-cmd))
+	$(info ACTION::$(set-action) ${DK_CMP_OPTS} RUN-CMD::$(set-run-cmd))
 endif
 
 # # #
