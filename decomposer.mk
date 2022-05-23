@@ -118,8 +118,6 @@ endef
 # docker-compose wrapper
 # # #
 
-
-
 #
 # we set project-dir explicitly because we do not want it determined by include file dirs.
 #
@@ -132,6 +130,7 @@ ifdef DEBUG
 	$(info ${--env-file} $(foreach f,$^,-f $f))
 	$(info $(set-action) $(set-run-cmd))
 endif
+
 # # #
 # Aliases
 # # #
