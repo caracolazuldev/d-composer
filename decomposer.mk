@@ -1,3 +1,8 @@
+
+# # #
+# Validation and Derived Configurations
+# # #
+
 ifndef STACK
 STACK := $(if $(wildcard .active),\
 	$(subst STACK=,,$(shell grep STACK $(wildcard .active))))
@@ -17,58 +22,76 @@ STACK_ID := $(shell echo "${STACK}" | tr a-z A-Z)
 include ${STACK_NAME}.stack
 endif
 
-ifdef DEBUG
-$(info STACK::${STACK})
-$(info ${STACK_SERVICES})
-endif
+# do not change default goal by this include:
+.DEFAULT_GOAL_CACHED := ${.DEFAULT_GOAL}
 
-.DEFAULT_GOAL := help
+# # #
+# Helpers
+# # #
 
 if-file-in = $(if $(wildcard $1/$2), $1/$2)
 
 # # #
+# Generate derived docker-compose files
+# # #
+
+# # #
 # /dev/null to avoid error from `cat` if no env files are used.
-# precedence of .env files by location or declaration: TODO
-# ENV_INCLUDES > stack/${STACK_ID}.env > stack/ > docker/
+# include service or task env files in docker/
+# include *.stack.env in project directory
+# include additional files from stack configuration (ENV_INCLUDES)
+# TODO: confirm/document precedence
 define stack-env-includes
 /dev/null \
-$(foreach svc,${STACK_SERVICES} ${TASK},$(call if-file-in,docker,${svc}.stack.env)) \
+$(foreach svc,${STACK_SERVICES} ${TASK},$(call if-file-in,docker,${svc}.env)) \
 $(foreach stk,${STACK_SERVICES} ${STACK_ID} ${TASK},$(call if-file-in,.,${stk}.stack.env)) \
 ${ENV_INCLUDES}
 endef
 
 %.stack.env: ${stack-env-includes}
-	cat $^ >$@
+	$(info using $(filter-out /dev/null,$^))
+	@cat $^ >$@
 
-ifdef STACK
-stack-env-file = ${STACK_NAME}.stack.env
---env-file = $(if $(wildcard ${stack-env-file}),--env-file=${stack-env-file})
-endif
+.INTERMEDIATE: ${STACK_NAME}.stack.env # enable auto-clean-up of generated files
 
+.env: ${STACK_NAME}.stack.env
+	@cp $< $@
+
+# # #
+# include YAML files named for the STACK in supported locations
+# include service/task definitions in docker/
 define stack-config-includes
 $(foreach type,network volume config conf,$(call if-file-in,${type},${STACK_NAME}.yml))\
 $(foreach svc,${STACK_SERVICES},$(call if-file-in,docker,${svc}.yml))
 endef
 
 %-compose.yml: ${stack-config-includes}
-	docker-compose --project-directory=. $(foreach f,$^,-f $f) config > $@ 2>/dev/null
+	$(info using $^)
+	@docker-compose --project-directory=. $(foreach f,$^,-f $f) config > $@ 2>/dev/null
 
-ifndef DEBUG
-.INTERMEDIATE: ${STACK_NAME}.stack.env ${STACK_NAME}-compose.yml
-endif
+.INTERMEDIATE: ${STACK_NAME}-compose.yml # enable auto-clean-up of generated files
 
 docker-compose.yml: ${STACK_NAME}-compose.yml
-	cp $< $@
+	@cp $< $@
 
-.env: ${STACK_NAME}.stack.env
-	cp $< $@
+ifdef DEBUG
+$(info STACK::${STACK})
+$(info stack-config-includes::$(strip ${stack-config-includes}))
+$(info stack-env-includes::$(strip ${stack-env-includes}))
+endif
+
+# # #
+# Commands
+# # #
 
 activate:
 ifeq (${STACK},NULL)
 	$(eval export STACK=${INACTIVE})
 endif
-	$(MAKE) .env docker-compose.yml 
-	echo "STACK=${STACK}" > .active
+	@$(MAKE) --quiet .env docker-compose.yml 
+	@echo "STACK=${STACK}" > .active
+	$(info STACK:${STACK})
+	$(info SERVICES:${STACK_SERVICES})
 
 rm-file = $(if $(shell (test -L $1 || test -e $1) && echo 'TRUE'), \
 	$(shell rm -f $1 && echo 'rm -f $1'))
@@ -87,7 +110,7 @@ endif
 
 custom-actions := down rund orphans services
 
-#
+# # #
 # docker compose sub-commands
 #
 define set-action
@@ -119,56 +142,50 @@ export WORKING_DIR # set --workdir option to run, exec, etc.
 #
 # we set project-dir explicitly because we do not want it determined by include file dirs.
 #
-dkc-%: docker-compose.yml $(if $(wildcard docker/${TASK}.yml), docker/${TASK}.yml) | .env
-	@docker-compose --project-dir=. ${--env-file} $(foreach f,$^,-f $f) \
+dkc-%: $(if $(filter-out NULL,${STACK}),docker-compose.yml) $(if $(filter-out NULL,${STACK}),.env) 
+	@docker-compose --project-dir=. $(if $(wildcard docker/${TASK}.yml), -f docker/${TASK}.yml) \
 	$(set-action) ${DK_CMP_OPTS} \
 	$(if ${WORKING_DIR},$(if $(filter rund run exec,$*),--workdir ${WORKING_DIR})) \
 	$(if $(filter-out config,$*),${TASK}) $(set-run-cmd)
 ifdef DEBUG
-	$(info ${--env-file} $(foreach f,$^,-f $f))
-	$(info $(set-action) $(set-run-cmd))
+	$(info ACTION::$(set-action) RUN-CMD::$(set-run-cmd))
 endif
 
 # # #
 # Aliases
 # # #
 
-config: dkc-config
-services: dkc-services
-run: dkc-run
-
 ENABLE_ALIASES := $(if $(and $(wildcard docker-compose.yml),$(wildcard .env)),ENABLE)
 
+#
+# Aliases that do not require a STACK definition
+#
+
+run: dkc-run
+rund: dkc-rund
+
+#
+# Aliases that do require a STACK definition
+#
 ifdef ENABLE_ALIASES
 build: dkc-build
+config: dkc-config
 create: dkc-create
 down: dkc-down
 events: dkc-events
 exec: dkc-exec
 logs: dkc-logs
+orphans: dkc-orphans # alias, `down --remove-orphans`
 pause: dkc-pause
 restart: dkc-restart
 rm: dkc-rm
+services: dkc-services
 start: dkc-start
 stop: dkc-stop
 top: dkc-top
 unpause: dkc-unpause
 up: dkc-up
-
-# custom decomposer cmds:
-orphans: dkc-orphans
-rund: dkc-rund
 endif
-
-# # #
-# Debug Mode
-# # #
-
-ifdef DEBUG
-.PRECIOUS: $(if ${DEBUG},%-compose.yml  %.stack.env)
-$(info yes, my precious)
-endif
-
 
 # # #
 # HALP
@@ -187,7 +204,6 @@ define HELP_TXT :=
 	A decomposed docker-compose YAML file is therefore split into files in the stack/
 	and docker/ folders, in .yml, .env, and .conf files. The purposes of these
 	files are:
-		- .env are aggregated into one file passed with `--env-file`
 		- stack/...yml defines top-level stack entities other than services
 		- docker/...yml for each service, automatically aggregated
 		- stack/...conf to configure the execution of decomposer
@@ -266,7 +282,6 @@ FOLDERS
 
 	- stack/ -
 	define stacks in .conf, .env, and .yml files, named by stack-name.
-	 - <stack>.env will be passed in --env-file to docker-compose.
 	 - <stack>.conf is included in make and effects decomposer
 	 - <stack>.yml defines top-level docker-compose entities like volumes, config, etc.
 	
@@ -431,7 +446,7 @@ DOCKER COMPOSE REFERENCES
 
 endef
 
-help:
+dcp-help:
 	$(info $(HELP_TXT))
 
 dcp-orientation:
@@ -439,3 +454,6 @@ dcp-orientation:
 
 dkc-rtfm:
 	$(info $(DKC_RTFM))
+
+# restore default goal.
+.DEFAULT_GOAL := ${.DEFAULT_GOAL_CACHED}
