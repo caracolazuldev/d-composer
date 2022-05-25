@@ -129,7 +129,7 @@ endef
 define set-run-cmd
 $(if $(filter rund run exec,$*),\
 $(if ${RUN_CMD},\
-$(if $(filter,1,$(words ${RUN_CMD})),${RUN_CMD},'${RUN_CMD}')\
+$(if $(filter 1,$(words ${RUN_CMD})),${RUN_CMD},'${RUN_CMD}')\
 )) ${CMD_ARGS}
 endef
 
