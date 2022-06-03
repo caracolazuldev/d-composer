@@ -1,20 +1,23 @@
-# Decomposer
-
-Docker-Compose utility.
-
-
+# Prioritized Milestones
 
 ## Create Manifest
 
 Capture Features, including documentation
 
+## Update Docs and Help
 
+README is significantly out-of date.
 
-## Create Build?
+## BUG: when running deactivate and activate together
 
-For documentation? So far, dcp exists as a single include file. For better VC, might split help-text into separate files and build into distributable.
+Reproduce: `make deactivate activate`
 
+Intermediate files get fumbled, I think.
 
+## Dynamic Stack Activation
+
+Unsure what happens when the STACK from the environment does not match the activated STACK.
+Probably need to detect, and dynamically swap stack activation.
 
 ## Flesh-out Architectural Considerations
 
@@ -25,6 +28,9 @@ For documentation? So far, dcp exists as a single include file. For better VC, m
 * Harness external tools and services, e.g. container image repos, aws-cli, production orchestration.
 
 
+## Create Build?
+
+For documentation? So far, dcp exists as a single include file. For better VC, might split help-text into separate files and build into distributable.
 
 ## Project Scaffold?
 
