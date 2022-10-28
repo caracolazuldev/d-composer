@@ -22,6 +22,10 @@ STACK_ID := $(shell echo "${STACK}" | tr a-z A-Z)
 include ${STACK_NAME}.stack
 endif
 
+ifdef STACK_SERVICES
+STACK_SERVICES := $(shell basename -as .yml ${STACK_SERVICES})
+endif
+
 # do not change default goal by this include:
 .DEFAULT_GOAL_CACHED := ${.DEFAULT_GOAL}
 
