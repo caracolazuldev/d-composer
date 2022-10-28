@@ -51,7 +51,7 @@ rm-file = $(if $(shell (test -L $1 || test -e $1) && echo 'TRUE'), \
 define stack-env-includes
 /dev/null \
 $(foreach svc,${STACK_SERVICES} ${TASK},$(call if-file-in,docker,${svc}.env)) \
-$(foreach stk,${STACK_SERVICES} ${STACK_ID} ${TASK},$(call if-file-in,.,${stk}.stack.env)) \
+$(foreach stk,${STACK_NAME} ${TASK},$(call if-file-in,.,${stk}.stack.env)) \
 ${ENV_INCLUDES}
 endef
 
