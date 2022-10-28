@@ -68,8 +68,10 @@ endef
 # include YAML files named for the STACK in supported locations
 # include service/task definitions in docker/
 define stack-config-includes
-$(foreach type,network volume config conf,$(call if-file-in,${type},${STACK_NAME}.yml))\
-$(foreach svc,${STACK_SERVICES},$(call if-file-in,docker,${svc}.yml))
+$(strip \
+	$(foreach type,network volume,$(call if-file-in,${type},${STACK_NAME}.yml))\
+	$(foreach svc,${STACK_SERVICES},$(call if-file-in,docker,${svc}.yml))
+)
 endef
 
 %-compose.yml: ${stack-config-includes}
