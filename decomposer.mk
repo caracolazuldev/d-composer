@@ -56,7 +56,6 @@ ${ENV_INCLUDES}
 endef
 
 %.stack.env: ${stack-env-includes}
-	$(info using $(filter-out /dev/null,$^))
 	@cat $^ >$@
 
 .INTERMEDIATE: ${STACK_NAME}.stack.env # enable auto-clean-up of generated files
@@ -75,7 +74,6 @@ $(strip \
 endef
 
 %-compose.yml: ${stack-config-includes}
-	$(info using $^)
 	@docker-compose --project-directory=. $(foreach f,$^,-f $f) config > $@ 2>/dev/null
 
 .INTERMEDIATE: ${STACK_NAME}-compose.yml # enable auto-clean-up of generated files
@@ -83,10 +81,16 @@ endef
 docker-compose.yml: ${STACK_NAME}-compose.yml
 	@cp $< $@
 
+define REPORT_STACK
+$(info STACK: ${STACK})\
+$(info ENV SOURCES: $(filter-out /dev/null,${stack-env-includes}))\
+$(info SERVICES: ${STACK_SERVICES})\
+$(info COMPOSER SOURCES: ${stack-config-includes})\
+$(info )
+endef
+
 ifdef DEBUG
-$(info STACK::${STACK})
-$(info stack-config-includes::$(strip ${stack-config-includes}))
-$(info stack-env-includes::$(strip ${stack-env-includes}))
+$(call REPORT_STACK)
 endif
 
 # # #
@@ -97,10 +101,9 @@ activate:
 ifeq (${STACK},NULL)
 	$(eval export STACK=${INACTIVE})
 endif
-	@$(MAKE) --quiet .env docker-compose.yml 
 	@echo "STACK=${STACK}" > .active
-	$(info STACK:${STACK})
-	$(info SERVICES:${STACK_SERVICES})
+	@$(MAKE) --quiet .env docker-compose.yml 
+	$(REPORT_STACK)
 
 deactivate:
 	$(foreach f,.env docker-compose.yml ${STACK_NAME}.stack.env ${STACK_NAME}-compose.yml,\
