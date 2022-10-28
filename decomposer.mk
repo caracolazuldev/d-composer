@@ -97,9 +97,9 @@ endif
 # Commands
 # # #
 
-activate:
+activate: | deactivate
 ifeq (${STACK},NULL)
-	$(eval export STACK=${INACTIVE})
+	$(eval STACK=${INACTIVE})
 endif
 	@echo "STACK=${STACK}" > .active
 	@$(MAKE) --quiet .env docker-compose.yml 
@@ -109,7 +109,7 @@ deactivate:
 	$(foreach f,.env docker-compose.yml ${STACK_NAME}.stack.env ${STACK_NAME}-compose.yml,\
 		$(call rm-file,$f))
 ifneq (${STACK},NULL)
-	echo "INACTIVE=${STACK}" > .active
+	@echo "INACTIVE=${STACK}" > .active
 endif
 
 # # #
