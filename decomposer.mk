@@ -1,4 +1,7 @@
 
+# docker-compose command
+DKC ?= docker compose
+
 # # #
 # Validation and Derived Configurations
 # # #
@@ -74,7 +77,7 @@ $(strip \
 endef
 
 %-compose.yml: ${stack-config-includes}
-	@docker-compose --project-directory=. $(foreach f,$^,-f $f) config > $@ 2>/dev/null
+	@$(DKC) --project-directory=. $(foreach f,$^,-f $f) config > $@ 2>/dev/null
 
 .INTERMEDIATE: ${STACK_NAME}-compose.yml # enable auto-clean-up of generated files
 
