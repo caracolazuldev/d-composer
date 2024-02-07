@@ -125,6 +125,9 @@ custom-actions := down rund orphans services
 # # #
 # docker compose sub-commands
 #
+# pass-through the action if it is not a custom action [filter-out]
+# and define custom actions
+#
 define set-action
 $(filter-out ${custom-actions},$*)\
 $(if $(filter down,$*),$(if ${TASK},rm --force --stop,down))\
@@ -138,6 +141,8 @@ endef
 # # #
 # docker run command-parameter
 #
+# intelligently quote the RUN_CMD if it contains spaces
+#
 define set-run-cmd
 $(if $(filter rund run exec,$*),\
 $(if ${RUN_CMD},\
@@ -150,7 +155,13 @@ endef
 # # #
 
 #
+# declare recipe prerequisites, docker-compose.yml and .env files, only if STACK is defined.
+# 
 # we set project-dir explicitly because we do not want it determined by include file dirs.
+#
+# Include a TASK.yml and TASK.env if TASK is defined
+#
+# Pass --workdir if WORKING_DIR is defined and the action is rund, run, or exec
 #
 dkc-%: $(if $(filter-out NULL,${STACK}),docker-compose.yml) $(if $(filter-out NULL,${STACK}),.env) 
 	@$(DKC) --project-dir=. $(if $(wildcard docker-compose.yml), -f docker-compose.yml) \
