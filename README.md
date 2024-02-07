@@ -5,7 +5,7 @@ Welcome to Decomposer, the Docker-Compose Configuration Manager. As a Makefile i
 
 This Makefile facilitates dynamically generating `docker-compose.yml` files from reusable service declarations. You might want to do this to test your application on different deployment targets or environments without duplicating common service definitions. Or, more easily re-use service definitions from one project to the next. Other use-cases might be: having different stacks for development, unit testing, integration and QA testing, or generating production builds.
 
-To generate a `docker-compose.yml` file and an `.env` file, decomposer looks in the environment variables, `STACK_SERVICES` and `ENV_INCLUDES`, to generate a list of file includes. You can easily switch between stacks using the `activate` and `deactivate` commands.
+To generate a `docker-compose.yml` file and an `.env` file, decomposer looks in the environment variables, `STACK_SERVICES` and `ENV_INCLUDES`, to generate a list of file includes. You can easily switch between stacks using the `activate` and `deactivate` commands. You must first set the `STACK` environment variable to the name of the stack you want to activate. Using the stack name, additional files are automatically discovered and included in the `docker-compose.yml` and `.env` files.
 
 For lazy typers, decomposer aliases `docker compose` commands. Rather than typing `docker compose` commands directly, you will use `make` followed by the docker-compose command you want to run, e.g. `make up`, `make down`, `make exec`, etc. See the [Aliases and Custom Commands](#aliases-and-custom-commands) section for additional commands not provided by `docker compose`.
 
@@ -71,6 +71,10 @@ Here are some common usage examples:
 - `make build TASK=php8-apache DK_CMP_OPTS='--no-cache'`: Build the PHP 8 Apache image with no cache.
 - `make exec TASK=php8-apache RUN_CMD='php -i'`: Execute `php -i` in the PHP 8 Apache container.
 - `make rund TASK=shell RUN_CMD='php' CMD_ARGS="-r 'phpinfo();'"`: Run PHP with `phpinfo()` in the shell container.
+
+## Troubleshooting
+
+If you are having trouble defining commands, you can set the environment variable `DEBUG` to be non-empty, and the Makefile will print the constructed command.
 
 ## Aliases and Custom Commands
 
