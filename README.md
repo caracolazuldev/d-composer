@@ -1,7 +1,7 @@
 
 # Decomposer
 
-Welcome to Decomposer, the Docker-Compose Configuration Manager. As a Makefile include, it easily integrates into your Makefile-based build and deployment tools. 
+Welcome to Decomposer, the Docker-Compose Configuration Manager. As a Makefile include, it easily integrates into your Makefile-based or shell-script build and deployment tools. 
 
 This Makefile facilitates dynamically generating `docker-compose.yml` files from reusable service declarations. You might want to do this to test your application on different deployment targets or environments without duplicating common service definitions. Or, more easily re-use service definitions from one project to the next. Other use-cases might be: having different stacks for development, unit testing, integration and QA testing, or generating production builds.
 
