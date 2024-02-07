@@ -13,6 +13,8 @@ In addition to wrapping `docker compose`, decomposer smooths-out some rough-edge
 
 The command wrappers also facilitate extending your development environment with ad hoc commands in your main Makefile. For example, you can run `make TASK=shell` to run a shell in the active stack, or `make TASK=php8-apache RUN_CMD='php -i'` to run `php -i` in the PHP 8 Apache container.
 
+Decomposer need not be adopted by an entire team because it does not break classic `docker-compose` usage. For those team members that do not need to switch between stacks, you can commit fully-generated `docker-compose.yml` files to your repository, and they can use `docker-compose` as they always have.
+
 Gain deeper insights into Decomposer on folder structure, environment variables, and configuration files:
 
 - see [docs/Orientation](docs/Orientation.md)
