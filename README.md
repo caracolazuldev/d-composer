@@ -33,12 +33,12 @@ Then, each of your services in the `docker/` directory will start with a `servic
 ```yaml
 services:
   <my-service>:
-	image: <my-image>
-	build:
-		args:
-			LOGIN_UID: ${LOGIN_UID:-1000}
-			LOGIN_GID: ${LOGIN_GID:-1000}
-			FROM_IMAGE: ${FROM_IMAGE:-php:8-apache}
+  image: <my-image>
+    build:
+      args:
+        LOGIN_UID: ${LOGIN_UID:-1000}
+        LOGIN_GID: ${LOGIN_GID:-1000}
+        FROM_IMAGE: ${FROM_IMAGE:-php:8-apache}
 	# ...
 ```
 
