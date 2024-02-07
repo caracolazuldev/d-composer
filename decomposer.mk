@@ -153,8 +153,9 @@ endef
 # we set project-dir explicitly because we do not want it determined by include file dirs.
 #
 dkc-%: $(if $(filter-out NULL,${STACK}),docker-compose.yml) $(if $(filter-out NULL,${STACK}),.env) 
-	@docker-compose --project-dir=. $(if $(wildcard docker-compose.yml), -f docker-compose.yml) \
-	$(if $(wildcard docker/${TASK}.yml), -f docker/${TASK}.yml) \
+	@$(DKC) --project-dir=. $(if $(wildcard docker-compose.yml), -f docker-compose.yml) \
+	$(if $(wildcard docker/${TASK}.yml), --file docker/${TASK}.yml) \
+	$(if $(wildcard docker/${TASK}.env), --env-file docker/${TASK}.env) \
 	$(set-action) ${DK_CMP_OPTS} \
 	$(if ${WORKING_DIR},$(if $(filter rund run exec,$*),--workdir ${WORKING_DIR})) \
 	$(if $(filter-out config,$*),${TASK}) $(set-run-cmd)
