@@ -1,68 +1,131 @@
-ORIENTATION TO DECOMPOSER
+# Orientation to Decomposer
 
-CONCEPTS
+## Concepts
 
-	- Stack: -
-	abstraction of a compose-file (docker-compose.yml), or a collection of 
-	services that share a network namespace.
+- **Stack**: 
+  An abstraction of a compose-file (docker-compose.yml), or a collection of services that share a network namespace. As a concept, a stack is a set of services that are deployed together. In decomposer, a stack is declared with the `STACK` environment variable, and the services are defined by the `STACK_SERVICES` environment variable.
 
-	- Service: -
-	a docker-compose service
+- **Network**: 
+  A docker network namespace. Unless you override `COMPOSER_PROJECT_NAME`, the network name will be set by composer to the current-directory name with a suffix of `_default`. There is no protection against bringing up multiple stacks with the same network name.
 
-	- Task: -
-	a docker-compose service conventionally not part of a stack, declared
-	to be used with docker-compose run.
+- **Volume**:
+  A docker volume. Define volumes to be managed by docker if you want to persist data between container runs.
 
-FOLDERS
+- **Environment File**:
+  A file containing environment variables to be used by docker-compose. The `.env` file in the project-root is used by `docker-compose` to set environment variables used by your containers.
 
-	- stack/ -
-	define stacks in .conf, .env, and .yml files, named by stack-name.
-	 - <stack>.conf is included in make and effects decomposer
-	 - <stack>.yml defines top-level docker-compose entities like volumes, config, etc.
-	
-	- docker/ -
-	Service declarations, intended to be composed into stacks, so excluding
-	any other top-level compose-file entities. NB: paths, such as build-context,
-	should be relative to the project directory.
+- **Container**:
+  A running instance of a container image. The containment of a container is of files, system processes, and networking. Containers are created from images, and can be run, started, stopped, and deleted.
 
-DEFINING STACKS
+- **Image**:
+  A read-only template with instructions for creating a Docker container. Images are used to create containers. Images are created with the `docker build` command, and they can be pushed to a registry for others to use.
 
-	A Stack requires a list of services, defined in the docker/ folder, and
-	.env files, and a top-level .yml file for the entities
-	other than the services, e.g. networks and volumes. 
-	
-	Stack definitions are placed into the stack/ folder using the stack-name and
-	either a .conf, .yml, or .env extension. Environment files for services may
-	be placed in either the stack/ or services/ folders. 
+- **Service**:
+  A service is a container running in a managed swarm or cluster. With automatic scaling, or other orchestration features, a service can be a single container or a group of containers. In an active docker compose stack, you can list the services with `docker compose config --services`, or with decomposer, `make services`.
 
-	Environment files for services will be automatically aggregated, but
-	additional environment files can be added from the ENV_INCLUDES variable.
+- **Service Declaration**:
+  A fragment of a docker-compose file that defines a service. These fragments are compiled by decomposer into a full docker-compose file by `docker compose config`.
 
-	A stack named "web", would then have a web.conf file that defines the services
-	in a WEB_STACK variable, and any additional ENV_INCLUDES.
+- **Task**:
+  A task is another name for a container running as a service. You can run ad hoc commands in a service by setting the `TASK` environment variable to the name of the service. In decomposer, a task does not have to exist in your active stack, but it must be defined in a service declaration (i.e. a `.yml` file in the `docker/` directory).
 
-	If defined, ${STACK_ID}_STACK is appended to the STACK_SERVICES list. The 
-	suggested convention is to define ".._STACK" in your stack-conf file and
-	use STACK_SERVICES for ad hoc command line invocations.
+- **Run Command**:
+  A command to be run in a service, specified by the `RUN_CMD` environment variable. This is used in conjunction with the `TASK` environment variable to run ad hoc commands in a service. Use `CMD_ARGS` to pass additional options to the command. You will typically define such commands you want to run time and again, in your top-level Makefile.
 
-ENVIRONMENT FILE PRECEDENCE
+- **Target**:
+  The build-tool, `make`, calls build outputs, "targets", typically application executables. Typical `make` usage is for the cli arguments to be build-targets. In decomposer, the targets are interpreted as `docker compose` commands. Therefor, anything else must be passed as an environment variable, such as `TASK`, `RUN_CMD`, or `CMD_ARGS`.
 
-	As multiple environment files are aggregated, later settings will 
-	supersede earlier settings. This can be a double-edged sword, so attention
-	should be given to the precedence of automatic aggregation. 
+## Command Wrappers
 
-	In order of precedence (reverse order of inclusion):
+Decomposer provides a set of command wrappers for `docker-compose` commands. 
 
-	 - variables from your executing shell environment
-	 - exported variables in the stack/$${STACK}.conf
-	 - files listed in ENV_INCLUDES (increasing order of precedence)
-	 - stack/$${STACK}.env
-	 - files automatically included (not from ENV_INCLUDES) in stack/
-	 - files automatically included in docker/
+## File Structure
 
-	 Observe that any declaration can be overridden by adding a file to the end
-	 of the ENV_INCLUDES list. If services have env files, you can override them
-	 in the stack/ folder.
+Very little is mandatory in terms of file naming and directory structure. Stacks must be defined in the project root, and services must be defined in the `docker/` folder. 
 
-	If TASK is defined, the so-named env file rises in precedence over it's 
-	peers in the folder but NOT over the stack/STACK.env or the ENV_INCLUDES files.
+> **NOTE:** Networks and volumes can dynamically be included for a stack by putting a `${STACK}.yml` file in a `network/` or `volume/` folder. **This feature might be removed in future versions.**
+
+You can define a stack just using environment variables, but you will probably want to save those configs in files for reuse. **When you set the `STACK` environment variable, `${STACK}.stack` will be included by `make`, while, `${STACK}.env` will be included by `docker-compose`.**
+
+Service declarations are intended to be composed into stacks, so excluding any other top-level compose-file entities
+
+> **NOTE:** Paths in service declarations, such as build-context, should be relative to the project directory.
+
+A active stack-name is cached in a `.active` file in the project root. This file is used to determine the active stack when the `STACK` environment variable is not set.
+
+## Environment File Precedence
+
+As multiple environment files are aggregated, later settings will supersede earlier settings. This can be a double-edged sword, so attention should be given to the precedence of automatic aggregation.
+
+In order of precedence (reverse order of inclusion):
+
+- Variables from your executing shell environment
+- Exported variables included by your top-level Makefile
+- Files listed in `ENV_INCLUDES` (increasing order of precedence)
+- The `${TASK}.env` file in the project-root, if `TASK` is defined.
+- The `${STACK}.env` file in the project-root.
+- Files automatically included in `docker/`, e.g. `docker/${SERVICE}.env`
+
+> **TIP:** define useful defaults in `docker/${SERVICE}.env` files, and override them either in the `${STACK}.env` file or in a file in a custom location added to `ENV_INCLUDES`. For example, you can define a common set of database credentials in `conf/db.env`, and include it in `ENV_INCLUDES` for multiple stacks.
+
+## Examples
+
+Here is an example usage in a project's top-level Makefile, for an application targeting two versions of PHP. It includes development workflow tools, and a target to build all of the images used by both stacks.
+
+```Makefile
+-include conf/project.env
+include decomposer.mk
+
+DKC = docker compose
+
+MANAGED_DIRS ?= volume/htdocs volume/home volume/logs
+
+${MANAGED_DIRS}:
+	mkdir $@
+
+facls:
+	TASK=shell WORKING_DIR=/var/src/nadcp-stage make run RUN_CMD='make -f src/facls.mk dev'
+
+shell:
+	$(DKC) exec --workdir /var/www/html shell /bin/bash
+
+sql-cli:
+	make run TASK=mysql8-cli STACK=sql-cli
+
+#
+# DEV Utils
+#
+
+flush:
+	WORKING_DIR=/var/www/html make run TASK=shell RUN_CMD='wp cache flush'
+
+watch:
+	# TODO: see watch.md
+
+tail-wp:
+	WORKING_DIR=/var/www/html make run TASK=shell RUN_CMD='tail -f /var/www/html/wp-content/debug.log'
+
+#
+# Container Image Development
+#
+
+build-containers:
+	$(MAKE) activate STACK=build-image dkc-build
+
+release:
+	${MAKE} deactivate
+	${MAKE} activate STACK=build-image
+	cp docker-compose.yml build-compose.yml
+	${MAKE} deactivate
+	${MAKE} activate STACK=dev-php7
+	cp docker-compose.yml php7-compose.yml
+	${MAKE} deactivate
+	${MAKE} activate STACK=dev-php8
+	cp docker-compose.yml php8-compose.yml
+	sed -i 's#$(shell pwd)#.#g' *-compose.yml
+	$(MAKE) deactivate
+	$(info NB: replace environment vars in compose files.)	
+
+```
+
+> **NOTE:** the release target saves unique compose files for each stack. This enables committing the stack-specific compose files to version control, in case you want to ease the workflow for other developers that can then either copy or link the stack-specific compose file to `docker-compose.yml` in the project root. Also note how a "build-image" stack was defined to build the images for all of the stacks, without having to activate each stack in turn.
