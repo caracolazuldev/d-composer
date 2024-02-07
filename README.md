@@ -86,6 +86,17 @@ Any `docker-compose` command can be run with `make` by prefixing the command wit
 
 > **NOTE:** some newer `docker-compose` commands are not yet aliased. You can still run them with `make` by prefixing the compose command with `dkc-`, e.g. `make dkc-images`, or `make dkc-copy`.
 
+**Bonus for lazy-typers:** recommended aliases to add to your shell profile:
+``` sh
+alias dk='docker'
+alias dkc='docker compose'
+alias dki='docker image'
+alias dkl='docker ps -a --format '\''table {{if .ID}}{{slice .ID 0 4}}{{end}}\t{{.Names}}\t{{if .Status}}{{slice .Status 0 2}}{{end}}\t{{.Image}}\t{{.Command}}'\'''
+alias dkll='dkl --no-trunc'
+alias dkr='docker run --rm'
+alias dke='docker exec -it'
+```
+
 ## Getting Started with Docker Compose
 
 If you're new to Docker Compose and are not familiar with project names, networks, volumes, tasks, and common Docker Compose commands, see our [docs/Compose Quick-start](docs/Compose Quick-start.md) for some sign-posts to start your journey.
