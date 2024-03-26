@@ -157,14 +157,14 @@ endef
 #
 # declare recipe prerequisites, docker-compose.yml and .env files, only if STACK is defined.
 # 
-# we set project-dir explicitly because we do not want it determined by include file dirs.
+# we set project-directory explicitly because we do not want it determined by include file dirs.
 #
 # Include a TASK.yml and TASK.env if TASK is defined
 #
 # Pass --workdir if WORKING_DIR is defined and the action is rund, run, or exec
 #
 dkc-%: $(if $(filter-out NULL,${STACK}),docker-compose.yml) $(if $(filter-out NULL,${STACK}),.env) 
-	@$(DKC) --project-dir=. $(if $(wildcard docker-compose.yml), -f docker-compose.yml) \
+	@$(DKC) --project-directory=. $(if $(wildcard docker-compose.yml), -f docker-compose.yml) \
 	$(if $(wildcard docker/${TASK}.yml), --file docker/${TASK}.yml) \
 	$(if $(wildcard docker/${TASK}.env), --env-file docker/${TASK}.env) \
 	$(set-action) ${DK_CMP_OPTS} \
