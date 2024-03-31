@@ -1,6 +1,8 @@
 
 # docker-compose command
-DKC ?= docker compose
+DKC_BIN ?= docker compose
+DKC_PROJ_DIR ?= . # --project-directory
+DKC_BIN := ${DKC_BIN} --project-directory=${DKC_PROJ_DIR}
 
 # # #
 # Validation and Derived Configurations
@@ -77,7 +79,7 @@ $(strip \
 endef
 
 %-compose.yml: ${stack-config-includes}
-	@$(DKC) --project-directory=. $(foreach f,$^,-f $f) config > $@ 2>/dev/null
+	@$(DKC_BIN) $(foreach f,$^,-f $f) config > $@ 2>/dev/null
 
 .INTERMEDIATE: ${STACK_NAME}-compose.yml # enable auto-clean-up of generated files
 
@@ -153,6 +155,14 @@ endef
 # # #
 # docker-compose wrapper
 # # #
+
+DKC := ${DKC_BIN} $(if $(wildcard docker-compose.yml), -f docker-compose.yml) \
+        $(if $(wildcard docker/${TASK}.yml), --file docker/${TASK}.yml) \
+        $(if $(wildcard docker/${TASK}.env), --env-file docker/${TASK}.env)
+
+ifdef DEBUG
+$(info DKC=${DKC})
+endif
 
 #
 # declare recipe prerequisites, docker-compose.yml and .env files, only if STACK is defined.
