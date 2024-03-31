@@ -164,6 +164,13 @@ ifdef DEBUG
 $(info DKC=${DKC})
 endif
 
+# # #
+# make wrapper
+# # #
+
+DKC_RUN_COMMAND = $(if ${WORKING_DIR},$(if $(filter rund run exec,$*),--workdir ${WORKING_DIR})) \
+	$(if $(filter-out config,$*),${TASK}) $(set-run-cmd)
+
 #
 # declare recipe prerequisites, docker-compose.yml and .env files, only if STACK is defined.
 # 
@@ -174,15 +181,11 @@ endif
 # Pass --workdir if WORKING_DIR is defined and the action is rund, run, or exec
 #
 dkc-%: $(if $(filter-out NULL,${STACK}),docker-compose.yml) $(if $(filter-out NULL,${STACK}),.env) 
-	@$(DKC) --project-directory=. $(if $(wildcard docker-compose.yml), -f docker-compose.yml) \
-	$(if $(wildcard docker/${TASK}.yml), --file docker/${TASK}.yml) \
-	$(if $(wildcard docker/${TASK}.env), --env-file docker/${TASK}.env) \
-	$(set-action) ${DK_CMP_OPTS} \
-	$(if ${WORKING_DIR},$(if $(filter rund run exec,$*),--workdir ${WORKING_DIR})) \
-	$(if $(filter-out config,$*),${TASK}) $(set-run-cmd)
 ifdef DEBUG
-	$(info ACTION::$(set-action) ${DK_CMP_OPTS} RUN-CMD::$(set-run-cmd))
+	$(info $(DKC) $(set-action) ${DK_CMP_OPTS} \) 
+	$(info ${DKC_RUN_COMMAND})
 endif
+	@$(DKC) $(set-action) ${DK_CMP_OPTS} ${DKC_RUN_COMMAND}
 
 # # #
 # Aliases
