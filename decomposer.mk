@@ -78,8 +78,14 @@ $(strip \
 )
 endef
 
+ifdef DEBUG
+$(info CONFIG-INCLUDES: ${stack-config-includes})
+endif
+
+## TODO: enable debug to output errors from `docker compose`. i.e.no /dev/null
+
 %-compose.yml: ${stack-config-includes}
-	@$(DKC_BIN) $(foreach f,$^,-f $f) config > $@ 2>/dev/null
+	$(DKC_BIN) $(foreach f,$^,-f $f) config > $@ $(if ${DEBUG},,2>/dev/null)
 
 .INTERMEDIATE: ${STACK_NAME}-compose.yml # enable auto-clean-up of generated files
 
@@ -102,12 +108,14 @@ endif
 # Commands
 # # #
 
+## TODO: enable debug to output errors from `docker compose`. i.e.no --quiet
+
 activate: | deactivate
 ifeq (${STACK},NULL)
 	$(eval STACK=${INACTIVE})
 endif
 	@echo "STACK=${STACK}" > .active
-	@$(MAKE) --quiet .env docker-compose.yml 
+	$(MAKE) .env docker-compose.yml 
 	$(REPORT_STACK)
 
 deactivate:
