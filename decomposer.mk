@@ -130,7 +130,7 @@ endif
 # and implement custom actions
 # # #
 
-custom-actions := down rund orphans services
+custom-actions := down rund orphans services logs
 
 # # #
 # docker compose sub-commands
@@ -145,7 +145,8 @@ $(if $(filter orphans,$*),down --remove-orphans)\
 $(if $(filter rund,$*),run -d)\
 $(if $(filter run,$*),--rm)\
 $(if $(filter up,$*),-d)\
-$(if $(filter services,$*),config --services)
+$(if $(filter services,$*),config --services)\
+$(if $(filter logs,$*),logs --follow)
 endef
 
 # # #
