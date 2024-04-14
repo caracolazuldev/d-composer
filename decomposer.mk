@@ -4,6 +4,9 @@ DKC_BIN ?= docker-compose
 DKC_PROJ_DIR ?= . # --project-directory
 DKC_BIN := ${DKC_BIN} --project-directory=${DKC_PROJ_DIR}
 
+MAKEFLAGS += --no-builtin-rules
+.SUFFIXES: # cancel suffix rules
+
 # # #
 # Validation and Derived Configurations
 # # #
