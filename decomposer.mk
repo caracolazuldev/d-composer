@@ -27,6 +27,7 @@ endif
 ifneq (${STACK},NULL)
 STACK_NAME := $(shell echo "${STACK}" | tr A-Z a-z)
 STACK_ID := $(shell echo "${STACK}" | tr a-z A-Z)
+$(if $(wildcard ${STACK_NAME}.stack),,$(error ERROR: could not find Stack declaration ${STACK_NAME}.stack))
 include ${STACK_NAME}.stack
 endif
 
@@ -116,6 +117,7 @@ endif
 activate: | deactivate
 ifeq (${STACK},NULL)
 	$(eval STACK=${INACTIVE})
+	$(if ${STACK},,$(error STACK not given to activate.))
 endif
 	@echo "STACK=${STACK}" > .active
 	$(MAKE) .env docker-compose.yml 
