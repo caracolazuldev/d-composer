@@ -31,6 +31,21 @@ A help
 
 Maybe this already works? More than one "active" profile doesn't seem necessary, but what might be stumbling blocks of bringing up more than one profile? What tools would help to manage multiple "up" profiles?
 
-## K8s
+## Sub-Command
+Require invocation via `make compose` to appear as a sub-command. I don't think we can conditionally include the library, but we can conditionally enable targets.
 
-hmmm...
+Un-tested code with a dummy target, help text when no other targets are given, and conditional wrapper to rest of library targets.
+
+``` make
+compose:
+  @echo "Dummy compose target"
+
+ifeq ($(filter compose,$(MAKECMDGOALS)),compose)
+ifeq ($(words $(MAKECMDGOALS)),1)
+$(info Usage: make compose [other_targets])
+$(info Utils for integrating docker compose.)
+else
+# define targets ...
+endif
+endif
+```
