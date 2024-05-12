@@ -1,6 +1,6 @@
 
 # docker-compose command
-DKC_BIN ?= docker-compose
+DKC_BIN ?= docker compose
 DKC_PROJ_DIR ?= . # --project-directory
 DKC_BIN := ${DKC_BIN} --project-directory=${DKC_PROJ_DIR}
 
