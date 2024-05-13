@@ -27,8 +27,10 @@ endif
 ifneq (${STACK},NULL)
 STACK_NAME := $(shell echo "${STACK}" | tr A-Z a-z)
 STACK_ID := $(shell echo "${STACK}" | tr a-z A-Z)
+ifndef STACK_SERVICES
 $(if $(wildcard ${STACK_NAME}.stack),,$(error ERROR: could not find Stack declaration ${STACK_NAME}.stack))
 include ${STACK_NAME}.stack
+endif # ifndef STACK_SERVICES
 endif
 
 ifdef STACK_SERVICES
