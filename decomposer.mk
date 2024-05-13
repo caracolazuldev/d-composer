@@ -195,8 +195,7 @@ custom-actions := down rund orphans services logs
 #
 define set-action
 $(filter-out ${custom-actions},$*)\
-$(if $(filter down,$*),$(if ${TASK},rm --force --stop,down))\
-$(if $(filter orphans,$*),down --remove-orphans)\
+$(if $(filter down,$*),$(if ${TASK},rm --force --stop,down --orphans))\
 $(if $(filter rund,$*),run -d)\
 $(if $(filter run,$*),--rm)\
 $(if $(filter up,$*),-d)\
@@ -260,6 +259,9 @@ ENABLE_ALIASES := $(if $(and $(wildcard docker-compose.yml),$(wildcard .env)),EN
 run: dkc-run
 rund: dkc-rund
 
+orphans:
+	docker container prune --force
+
 #
 # Aliases that do require a STACK definition
 #
@@ -271,7 +273,6 @@ down: dkc-down
 events: dkc-events
 exec: dkc-exec
 logs: dkc-logs
-orphans: dkc-orphans # alias, `down --remove-orphans`
 pause: dkc-pause
 restart: dkc-restart
 rm: dkc-rm
