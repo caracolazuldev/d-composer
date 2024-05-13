@@ -143,15 +143,21 @@ strip-parent-dirs.awk = {gsub("'"$(shell pwd)"'", ".")}1
 	@$(DKC_BIN) $(foreach f,$^,-f $f) config | \
 	awk '$(rm-env-vals.awk)' | \
 	awk '$(strip-parent-dirs.awk)' \
-	>> $@ $(if ${DEBUG},,2>/dev/null)
+	>> $@
 
 .INTERMEDIATE: ${STACK_NAME}-compose.yml # enable auto-clean-up of generated files
 
 docker-compose.yml: ${STACK_NAME}-compose.yml
 	@cp $< $@
 
-# DEBUG sources
-ifdef DEBUG
+# # #
+# if DEBUG = DCMP_DEBUG, turn on debug output.
+ifeq (${DEBUG},DCMP_DEBUG)
+DISP_DEBUG := 1
+endif
+
+# Display Sources
+ifdef DISP_DEBUG
 $(info STACK: ${STACK})\
 $(info ENV SOURCES: $(filter-out /dev/null,${stack-env-includes}))\
 $(info COMPOSER SOURCES: ${stack-config-includes})\
@@ -162,20 +168,21 @@ endif
 # Commands
 # # #
 
-activate: | deactivate
+activate: | deactivate .env docker-compose.yml
 ifeq (${STACK},NULL)
 	$(eval STACK=${INACTIVE})
 	$(if ${STACK},,$(error STACK not given to activate.))
 endif
 	@echo "STACK=${STACK}" > .active
+	$(info )
 	$(info ENV SOURCES: $(filter-out /dev/null,${stack-env-includes}))\
 	$(info COMPOSER SOURCES: ${stack-config-includes})\
 	$(info )
-	$(MAKE) --always-make .env docker-compose.yml 
+	$(info SERVICES ACTIVATED:)
+	@$(MAKE) --quiet services && echo ""
 
 deactivate:
-	$(foreach f,.env docker-compose.yml ${STACK_NAME}.stack.env ${STACK_NAME}-compose.yml,\
-		$(call rm-file,$f))
+	@$(foreach f,.env docker-compose.yml ${STACK_NAME}.stack.env ${STACK_NAME}-compose.yml,$(call rm-file,$f))
 ifneq (${STACK},NULL)
 	@echo "INACTIVE=${STACK}" > .active
 endif
@@ -224,7 +231,7 @@ DKC := ${DKC_BIN} $(if $(wildcard docker-compose.yml), -f docker-compose.yml) \
         $(if $(wildcard docker/${TASK}.yml), --file docker/${TASK}.yml) \
         $(if $(wildcard docker/${TASK}.env), --env-file docker/${TASK}.env)
 
-ifdef DEBUG
+ifdef DISP_DEBUG
 $(info DKC=${DKC})
 endif
 
@@ -240,7 +247,7 @@ DKC_RUN_COMMAND = $(if ${WORKING_DIR},$(if $(filter rund run exec,$*),--workdir 
 # declare recipe prerequisites, docker-compose.yml and .env files, only if STACK is defined.
 # 
 dkc-%: $(if $(filter-out NULL,${STACK}),docker-compose.yml) $(if $(filter-out NULL,${STACK}),.env) 
-ifdef DEBUG
+ifdef DISP_DEBUG
 	$(info $(DKC) $(set-action) ${DK_CMP_OPTS} \) 
 	$(info ${DKC_RUN_COMMAND})
 endif
