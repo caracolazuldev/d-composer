@@ -1,7 +1,15 @@
 
 # docker-compose command
 DKC_BIN ?= docker compose
+
+# It's recommended to use root directory of the project as the project directory.
+# Just take note of this, especially when defining build-context.
+# e.g. your context might be `./docker/...`  while you might mount `volume: ./src:/app` 
+# ... even if your config file is in said directory and your source is in a parent dir.
+# Remembering all paths are relative to the project directory seems a reasonably sane standard.
 DKC_PROJ_DIR ?= . # --project-directory
+
+# we set project-directory explicitly because we do not want it determined by include file dirs.
 DKC_BIN := ${DKC_BIN} --project-directory=${DKC_PROJ_DIR}
 
 MAKEFLAGS += --no-builtin-rules
@@ -67,7 +75,10 @@ ${ENV_INCLUDES}
 endef
 
 %.stack.env: ${stack-env-includes}
-	@cat $^ >$@
+	@ echo '# ' > $@
+	@ echo '# WARNING: Generated Configuration using - $^' >> $@
+	@ echo '# ' >> $@
+	@cat $^ >>$@
 
 .INTERMEDIATE: ${STACK_NAME}.stack.env # enable auto-clean-up of generated files
 
@@ -84,37 +95,72 @@ $(strip \
 )
 endef
 
-ifdef DEBUG
-$(info CONFIG-INCLUDES: ${stack-config-includes})
-endif
 
-## TODO: enable debug to output errors from `docker compose`. i.e.no /dev/null
+# # #
+# transform interpolated environment variables in docker-compose.yml
+# so that configured values are not leaked into the generated file.
+define rm-env-vals.awk :=
+	/environment:/ { \
+		in_environment = 1; \
+		print; \
+		next; \
+	} \
+	in_environment { \
+		if (saved_indent == "") { \
+			match($$0, /^[ \t]*/); \
+			saved_indent = substr($$0, RSTART, RLENGTH); \
+		} \
+		if (substr($$0, 1, length(saved_indent)) == saved_indent) { \
+			gsub(/^ +/, "", $$0); \
+			colon_pos = index($$0, ":"); \
+			if (colon_pos > 0) { \
+				printf "%s- %s\n", saved_indent, substr($$0, 1, colon_pos - 1); \
+			} else { \
+				printf "%s%s\n", saved_indent, $$0; \
+			} \
+			next; \
+		} else { \
+			in_environment = 0; \
+		} \
+	} \
+	{ \
+		print; \
+	}
+endef
 
+# replace the current directory with '.' in the generated file
+strip-parent-dirs.awk = {gsub("'"$(shell pwd)"'", ".")}1
+
+# # #
+# IMPORTANT: call rm-env-values.awk so that 
+# interpolated values are not leaked into the generated file.
+#
+# strip-parent-dirs.awk is used to keep the generated file portable.
 %-compose.yml: ${stack-config-includes}
-	$(DKC_BIN) $(foreach f,$^,-f $f) config > $@ $(if ${DEBUG},,2>/dev/null)
+	@ echo '# ' > $@
+	@ echo '# WARNING: Generated Configuration using - $^' >> $@
+	@ echo '# ' >> $@
+	@$(DKC_BIN) $(foreach f,$^,-f $f) config | \
+	awk '$(rm-env-vals.awk)' | \
+	awk '$(strip-parent-dirs.awk)' \
+	>> $@ $(if ${DEBUG},,2>/dev/null)
 
 .INTERMEDIATE: ${STACK_NAME}-compose.yml # enable auto-clean-up of generated files
 
 docker-compose.yml: ${STACK_NAME}-compose.yml
 	@cp $< $@
 
-define REPORT_STACK
+# DEBUG sources
+ifdef DEBUG
 $(info STACK: ${STACK})\
 $(info ENV SOURCES: $(filter-out /dev/null,${stack-env-includes}))\
-$(info SERVICES: ${STACK_SERVICES})\
 $(info COMPOSER SOURCES: ${stack-config-includes})\
 $(info )
-endef
-
-ifdef DEBUG
-$(call REPORT_STACK)
 endif
 
 # # #
 # Commands
 # # #
-
-## TODO: enable debug to output errors from `docker compose`. i.e.no --quiet
 
 activate: | deactivate
 ifeq (${STACK},NULL)
@@ -122,8 +168,10 @@ ifeq (${STACK},NULL)
 	$(if ${STACK},,$(error STACK not given to activate.))
 endif
 	@echo "STACK=${STACK}" > .active
-	$(MAKE) .env docker-compose.yml 
-	$(REPORT_STACK)
+	$(info ENV SOURCES: $(filter-out /dev/null,${stack-env-includes}))\
+	$(info COMPOSER SOURCES: ${stack-config-includes})\
+	$(info )
+	$(MAKE) --always-make .env docker-compose.yml 
 
 deactivate:
 	$(foreach f,.env docker-compose.yml ${STACK_NAME}.stack.env ${STACK_NAME}-compose.yml,\
@@ -172,6 +220,7 @@ endef
 # docker-compose wrapper
 # # #
 
+# Include a TASK.yml and TASK.env if TASK is defined
 DKC := ${DKC_BIN} $(if $(wildcard docker-compose.yml), -f docker-compose.yml) \
         $(if $(wildcard docker/${TASK}.yml), --file docker/${TASK}.yml) \
         $(if $(wildcard docker/${TASK}.env), --env-file docker/${TASK}.env)
@@ -184,18 +233,13 @@ endif
 # make wrapper
 # # #
 
+# Pass --workdir if WORKING_DIR is defined and the action is rund, run, or exec
 DKC_RUN_COMMAND = $(if ${WORKING_DIR},$(if $(filter rund run exec,$*),--workdir ${WORKING_DIR})) \
 	$(if $(filter-out config,$*),${TASK}) $(set-run-cmd)
 
 #
 # declare recipe prerequisites, docker-compose.yml and .env files, only if STACK is defined.
 # 
-# we set project-directory explicitly because we do not want it determined by include file dirs.
-#
-# Include a TASK.yml and TASK.env if TASK is defined
-#
-# Pass --workdir if WORKING_DIR is defined and the action is rund, run, or exec
-#
 dkc-%: $(if $(filter-out NULL,${STACK}),docker-compose.yml) $(if $(filter-out NULL,${STACK}),.env) 
 ifdef DEBUG
 	$(info $(DKC) $(set-action) ${DK_CMP_OPTS} \) 
