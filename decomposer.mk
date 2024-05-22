@@ -74,16 +74,11 @@ $(foreach stk,${STACK_NAME} ${TASK},$(call if-file-in,.,${stk}.env)) \
 ${ENV_INCLUDES}
 endef
 
-%.stack.env: ${stack-env-includes}
+.env: ${stack-env-includes}
 	@ echo '# ' > $@
 	@ echo '# WARNING: Generated Configuration using - $^' >> $@
 	@ echo '# ' >> $@
 	@cat $^ >>$@
-
-.INTERMEDIATE: ${STACK_NAME}.stack.env # enable auto-clean-up of generated files
-
-.env: ${STACK_NAME}.stack.env
-	@cp $< $@
 
 # # #
 # include YAML files named for the STACK in supported locations
@@ -136,7 +131,7 @@ strip-parent-dirs.awk = {gsub("'"$(shell pwd)"'", ".")}1
 # interpolated values are not leaked into the generated file.
 #
 # strip-parent-dirs.awk is used to keep the generated file portable.
-%-compose.yml: ${stack-config-includes}
+docker-compose.yml: ${stack-config-includes}
 	@ echo '# ' > $@
 	@ echo '# WARNING: Generated Configuration using - $^' >> $@
 	@ echo '# ' >> $@
@@ -144,11 +139,6 @@ strip-parent-dirs.awk = {gsub("'"$(shell pwd)"'", ".")}1
 	awk '$(rm-env-vals.awk)' | \
 	awk '$(strip-parent-dirs.awk)' \
 	>> $@
-
-.INTERMEDIATE: ${STACK_NAME}-compose.yml # enable auto-clean-up of generated files
-
-docker-compose.yml: ${STACK_NAME}-compose.yml
-	@cp $< $@
 
 # # #
 # if DEBUG = DCMP_DEBUG, turn on debug output.
@@ -182,7 +172,8 @@ endif
 	@$(MAKE) --quiet services && echo ""
 
 deactivate:
-	@$(foreach f,.env docker-compose.yml ${STACK_NAME}.stack.env ${STACK_NAME}-compose.yml,$(call rm-file,$f))
+	@$(call rm-file,$.env)
+	@$(call rm-file,docker-compose.yml)
 ifneq (${STACK},NULL)
 	@echo "INACTIVE=${STACK}" > .active
 endif
