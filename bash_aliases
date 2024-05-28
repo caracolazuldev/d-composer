@@ -11,6 +11,9 @@ alias dki='docker image'
 # always remove run containers
 alias dkr='docker run --rm'
 
+# Remove all stopped containers
+alias dkp=docker container prune
+
 #
 # Listing Containers
 #
